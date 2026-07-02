@@ -67,7 +67,7 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-next": "^16.2.9",
     "playwright-core": "^1.60.0",
     "storybook": "^10.4.4",
