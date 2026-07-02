@@ -99,3 +99,10 @@ Table.Head = Head;
 Table.Body = Body;
 Table.Row = TableRow;
 Table.Cell = Cell;
+
+// Named exports for Server Components. The `Table.X` compound properties above
+// only exist on the real module object - a server component importing this
+// client module gets per-export client-reference proxies, so properties
+// attached to the Table function are lost across that boundary. Server
+// components must use these named exports instead.
+export { Head as TableHead, Body as TableBody, TableRow, Cell as TableCell };

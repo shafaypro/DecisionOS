@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { Badge } from "@/components/ui/badge";
-import { Table } from "@/components/ui/table";
+import { Table, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -58,44 +58,44 @@ export default async function AuditLogPage() {
       ) : (
         <div className="rounded-xs border border-slate-200">
           <Table>
-            <Table.Head>
-              <Table.Row>
-                <Table.Cell>When</Table.Cell>
-                <Table.Cell>Action</Table.Cell>
-                <Table.Cell>Actor</Table.Cell>
-                <Table.Cell>Target</Table.Cell>
-                <Table.Cell>IP</Table.Cell>
-                <Table.Cell>Outcome</Table.Cell>
-              </Table.Row>
-            </Table.Head>
-            <Table.Body>
+            <TableHead>
+              <TableRow>
+                <TableCell>When</TableCell>
+                <TableCell>Action</TableCell>
+                <TableCell>Actor</TableCell>
+                <TableCell>Target</TableCell>
+                <TableCell>IP</TableCell>
+                <TableCell>Outcome</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {entries.map((e) => (
-                <Table.Row key={e.id}>
-                  <Table.Cell>
+                <TableRow key={e.id}>
+                  <TableCell>
                     <Text mono color="muted">{format(e.createdAt, "MMM d, yyyy HH:mm")}</Text>
-                  </Table.Cell>
-                  <Table.Cell>
+                  </TableCell>
+                  <TableCell>
                     <Text>{describeAuditAction(e.action)}</Text>
-                  </Table.Cell>
-                  <Table.Cell>
+                  </TableCell>
+                  <TableCell>
                     <Text>{e.actorEmail ?? "-"}</Text>
-                  </Table.Cell>
-                  <Table.Cell>
+                  </TableCell>
+                  <TableCell>
                     <Text color="muted">{e.targetType ?? "-"}</Text>
-                  </Table.Cell>
-                  <Table.Cell>
+                  </TableCell>
+                  <TableCell>
                     <Text mono color="muted">{e.ip ?? "-"}</Text>
-                  </Table.Cell>
-                  <Table.Cell>
+                  </TableCell>
+                  <TableCell>
                     {e.outcome === "failure" ? (
                       <Badge className="border-red-200 bg-red-50 text-red-700">failure</Badge>
                     ) : (
                       <Badge>success</Badge>
                     )}
-                  </Table.Cell>
-                </Table.Row>
+                  </TableCell>
+                </TableRow>
               ))}
-            </Table.Body>
+            </TableBody>
           </Table>
         </div>
       )}
