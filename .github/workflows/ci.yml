@@ -97,7 +97,7 @@ jobs:
       # Verifies the multi-stage Dockerfile assembles: the slim serving image
       # (production deps only) and the one-shot migrator image.
       - name: Build serving image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: runner
@@ -106,7 +106,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build migrator image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: migrator

@@ -64,7 +64,7 @@ jobs:
 
       # Slim serving image (production deps only).
       - name: Build & push serving image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: runner
@@ -87,7 +87,7 @@ jobs:
             type=sha,prefix=sha-
 
       - name: Build & push migrator image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: migrator
