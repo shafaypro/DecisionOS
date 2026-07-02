@@ -1,0 +1,4 @@
+# Documentation site (MkDocs + Material). Pinned to the last cleanly
+# MIT-licensed Material release, before the 2.0 commercialization nag.
+# Build locally: pip install -r requirements-docs.txt && mkdocs serve
+mkdocs-material==9.5.49

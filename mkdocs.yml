@@ -1,0 +1,76 @@
+site_name: DecisionOS
+site_description: Open-source, self-hostable system of record for team decisions.
+site_url: https://shafaypro.github.io/DecisionOS/
+repo_url: https://github.com/shafaypro/DecisionOS
+repo_name: shafaypro/DecisionOS
+edit_uri: edit/main/docs/
+copyright: MIT-licensed. Free and open source.
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+# Keep internal working notes and the GitHub-only docs map out of the site.
+exclude_docs: |
+  internal/
+  README.md
+
+nav:
+  - Home: index.md
+  - Setup: SETUP.md
+  - Architecture:
+      - Overview: architecture/README.md
+      - Frontend layer: architecture/frontend-layer.md
+      - API layer: architecture/api-layer.md
+      - Business logic: architecture/business-logic-layer.md
+      - Data layer: architecture/data-layer.md
+  - Deployment:
+      - Compare targets: deployment/README.md
+      - System architecture: deployment/ARCHITECTURE.md
+      - AWS EC2 runbook: deployment/AWS_EC2_DEPLOYMENT_RUNBOOK.md
+      - GCP free-tier: deployment/GCP.md
+  - Compliance:
+      - GDPR: compliance/GDPR.md
+      - SOC 2: compliance/SOC2.md
+  - Platform admin: PLATFORM_ADMIN.md
