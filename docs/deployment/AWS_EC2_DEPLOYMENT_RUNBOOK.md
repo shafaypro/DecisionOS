@@ -4,7 +4,7 @@ This is the step-by-step record of deploying DecisionOS to AWS on a single
 free-tier-eligible EC2 instance. It covers the bootstrap bugs that had to be
 fixed to make it work and the private-repo workaround used.
 
-It complements [`deploy/aws-ec2/README.md`](../../deploy/aws-ec2/README.md). That
+It complements [`deploy/aws-ec2/README.md`](https://github.com/shafaypro/DecisionOS/blob/main/deploy/aws-ec2/README.md). That
 file describes the *intended* flow; this file records what actually happened and
 the deltas required.
 
@@ -239,27 +239,16 @@ curl -s http://<server-ip>/api/health
 
 The `/api/seed` route is **disabled when `NODE_ENV=production`**
 (`{"error":"Not available in production"}`), so the documented `curl .../api/seed`
-does **not** work on this deployment. Two other complications:
+does **not** work on this deployment.
 
-- `npm run seed` runs `prisma/seed.ts`, which uses the **libSQL (SQLite) adapter**.
-  That is wrong for Postgres.
-- `prisma/seed.mts` is Postgres-shaped but does `new PrismaClient()` with **no driver
-  adapter** (Prisma v7 requires one), and the generated client (`client.ts`) exports
-  both a `const` and a `type` named `PrismaClient`, which breaks tsx's static ESM import.
-
-**What actually worked:** run `seed.mts` as a one-shot in the migrator image (full
-toolchain plus `pg` and `@prisma/adapter-pg`), patched to (a) inject the Postgres
-adapter and (b) use a runtime dynamic `import()` for the client:
+Instead, run the seeder (`prisma/seed.ts`) as a one-shot in the migrator image.
+It picks the driver adapter from the `DATABASE_URL` scheme (Postgres vs SQLite,
+mirroring `src/lib/prisma.ts`), so the same script works against the production
+Postgres with no patching:
 
 ```bash
-cd /opt/decisionos/app
-sed -e '/^import { PrismaClient } from/d' \
-  -e 's#const prisma = new PrismaClient();#const { PrismaClient } = await import("../src/generated/prisma/client.js"); const { Pool } = await import("pg"); const { PrismaPg } = await import("@prisma/adapter-pg"); const prisma = new PrismaClient({ adapter: new PrismaPg(new Pool({ connectionString: process.env.DATABASE_URL })) });#' \
-  prisma/seed.mts | sudo tee prisma/seed-pg.mts
-cd deploy/docker-compose
-sudo docker compose run --rm -T \
-  -v /opt/decisionos/app/prisma/seed-pg.mts:/app/prisma/seed-pg.mts:ro \
-  migrate npx tsx prisma/seed-pg.mts
+cd /opt/decisionos/app/deploy/docker-compose
+sudo docker compose run --rm -T migrate npm run seed
 # Result: 3 users, 1 workspace, 6 decisions. Login: admin@acme.demo / password123
 ```
 
@@ -327,7 +316,7 @@ the image off-box and have the instance just pull it, covered in §7.
 
 ## 7. Off-box image builds, the recommended path
 
-> **CI/CD runs on GitHub Actions.** [`release-images.yml`](../../.github/workflows/release-images.yml)
+> **CI/CD runs on GitHub Actions.** [`release-images.yml`](https://github.com/shafaypro/DecisionOS/blob/main/.github/workflows/release-images.yml)
 > builds the images and pushes them to **GHCR** when you publish a release (or push
 > a `v*` tag); the box only pulls. This section documents that GHCR pull-based approach.
 

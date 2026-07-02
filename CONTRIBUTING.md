@@ -200,13 +200,20 @@ The current suites:
 | Suite | What it covers |
 |---|---|
 | `slack-hmac` | HMAC signing, replay window, tampered body |
+| `crypto` | AES-256-GCM secret encryption round-trip and tamper rejection |
 | `rate-limit` | Token-bucket exhaustion, key isolation, window reset |
 | `decision-health` | All 8 health states and precedence rules |
 | `similarity` | Tokenizer, Jaccard, threshold sanity |
 | `graph-layout` | Seed positions, bounds, determinism, spring attraction |
+| `auth-guards` | Role-based access control over the API write surface |
+| `utils` | Shared pure helpers (slugify, date formatting, ...) |
+| `review-token` | Magic-link review token signing and expiry |
 | `decision-retrieval` | Ranking/field-weighting, snippet extraction, grounded-prompt construction, citation parsing |
 | `session` | Encrypted-cookie (JWE/A256GCM) round-trip, tamper/format rejection |
 | `api-foundation` | Role authorization levels + tenant-scoping `where` builders |
+| `workspace-summary` | Workspace digest/summary computation |
+| `cron-auth` | Cron endpoint bearer-secret authentication |
+| `error-reporting` | Error scrubbing (PII/secret redaction) before reporting |
 | `platform-auth` | Platform super-admin allow-list + `/admin` console authorization |
 | `audit` | Audit action catalog (closed set), secret redaction, request attribution |
 

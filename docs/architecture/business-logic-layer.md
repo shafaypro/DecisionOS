@@ -12,9 +12,9 @@ Three kinds of module live here: **pure business logic**, **infrastructure**, an
 PURE LOGIC          INFRASTRUCTURE                 INTEGRATIONS
 (no I/O)            (I/O, cross-cutting)           (external APIs)
 decision-health    session  env   prisma          slack/*  sso
-similarity         crypto   logger rate-limit      stripe   email
-plans              auth-guards     analytics
-graph-layout       review-token    utils
+similarity         crypto   logger rate-limit      email    anthropic
+graph-layout       auth-guards     analytics
+                   review-token    utils
 ```
 
 ## Pure business logic (no I/O - unit-tested in `tests/smoke/`)

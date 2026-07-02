@@ -13,8 +13,7 @@ import { auditApiEvent } from "@/lib/audit-log";
  *
  * Guard: if the user is the SOLE admin of any workspace, deleting them would
  * orphan that workspace. Refuse and tell them to delete or transfer it first
- * (mirrors the last-admin guard in /api/team/[id]). Workspace-owned Stripe
- * subscriptions are handled by the separate workspace-delete route.
+ * (mirrors the last-admin guard in /api/team/[id]).
  */
 export const DELETE = withApi<undefined>({ require: "auth" }, async ({ session, req }) => {
   const adminMemberships = await prisma.workspaceMembership.findMany({

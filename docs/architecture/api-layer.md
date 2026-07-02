@@ -25,7 +25,7 @@ fetch("/api/<resource>", { method, body })
 ```
 
 Steps 1-4 are the same opening lines in almost every handler - see
-[reuse opportunity](#known-rough-edges) below.
+[reuse opportunity](#known-rough-edges-improvement-backlog) below.
 
 ## The standard handler shape
 
@@ -62,9 +62,8 @@ export async function POST(req: NextRequest) {
 | `integrations/` | get/put/delete | Slack/Teams/email/Anthropic config (encrypted). |
 | `slack/` | `install`, `oauth/callback`, `events`, `actions`, `commands/log`, `connect-user` | Slack capture bot. |
 | `auth/sso/[slug]/` | `start`, `callback` | OIDC SSO flow. |
-| `billing/` | `checkout`, `portal`, `webhook` | Stripe. |
 | `notifications/` | list, `send` | In-app + outbound notifications. |
-| `cron/` | `review-reminders`, `weekly-digest` | Scheduled jobs (bearer-auth). |
+| `cron/` | `review-reminders`, `weekly-digest`, `audit-retention` | Scheduled jobs (bearer-auth). |
 | `platform/` | `workspaces`, `workspaces/[id]`, `workspaces/[id]/enter`, `exit` | Provider control plane - **staff-only**, cross-tenant. See below. |
 | `health`, `seed` | ops | Liveness probe; dev-only demo seed. |
 
@@ -85,7 +84,7 @@ export async function POST(req: NextRequest) {
   `try/catch` to translate Prisma unique-constraint errors into friendly 400s.
 - **Transactions:** create + audit-event pairs run inside `prisma.$transaction([...])` so a
   partial failure can't orphan rows.
-- **Webhooks** (`slack/*`, `billing/webhook`) have **no user session** - they authenticate
+- **Webhooks** (`slack/*`) have **no user session** - they authenticate
   by HMAC signature + timestamp replay window instead, then decrypt stored secrets.
 - **Rate limiting:** applied on abuse-prone public/expensive routes (`search`, `similar`,
   `auth/sso/start`, public `share`) via `src/lib/rate-limit.ts`.

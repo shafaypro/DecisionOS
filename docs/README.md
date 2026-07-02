@@ -37,11 +37,3 @@ CI/CD runs on **GitHub Actions**: [`ci.yml`](../.github/workflows/ci.yml) gates 
 | [PLATFORM_ADMIN.md](PLATFORM_ADMIN.md) | The cross-tenant `/admin` provider console |
 | [compliance/GDPR.md](compliance/GDPR.md) | Data processing records and how data-subject rights work |
 | [compliance/SOC2.md](compliance/SOC2.md) | SOC 1 / SOC 2 control mapping, incl. the security audit trail |
-
-## Internal (planning, history)
-
-Working notes and historical artifacts, not part of the user-facing docs:
-
-- [internal/PRODUCTION_READINESS.md](internal/PRODUCTION_READINESS.md), [internal/ROADMAP.md](internal/ROADMAP.md), [internal/STARTUP_PLAN.md](internal/STARTUP_PLAN.md), [internal/PROGRESS.md](internal/PROGRESS.md)
-- [internal/AUDIT_REPORT.md](internal/AUDIT_REPORT.md) - a point-in-time audit
-- [internal/design-plans/](internal/design-plans/) - historical UI/feature implementation plans

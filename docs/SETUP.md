@@ -13,20 +13,21 @@ around. Every step tells you what you'll have working when it's done.
 1. [Prerequisites](#1-prerequisites)
 2. [Clone and install](#2-clone-and-install)
 3. [Environment variables](#3-environment-variables)
-4. [Database: schema + migrations](#4-database-schema--migrations)
+4. [Database: schema and migrations](#4-database-schema-and-migrations)
 5. [Run locally](#5-run-locally)
 6. [Create your first workspace](#6-create-your-first-workspace)
-7. [Email (review reminders + weekly digest)](#7-email-review-reminders--weekly-digest)
+7. [Email (review reminders and weekly digest)](#7-email-review-reminders-and-weekly-digest)
 8. [Scheduled jobs (Vercel Cron)](#8-scheduled-jobs-vercel-cron)
 9. [Slack capture bot](#9-slack-capture-bot)
-11. [Single Sign-On (OIDC)](#11-single-sign-on-oidc)
-12. [AI drafting (Anthropic) - optional](#12-ai-drafting-anthropic--optional)
-13. [Deploy to Vercel](#13-deploy-to-vercel)
-14. [Analytics + operational queries](#14-analytics--operational-queries)
-15. [Troubleshooting](#15-troubleshooting)
+10. [Single Sign-On (OIDC)](#10-single-sign-on-oidc)
+11. [AI drafting with Anthropic (optional)](#11-ai-drafting-with-anthropic-optional)
+12. [Deploy to Vercel](#12-deploy-to-vercel)
+13. [Analytics and operational queries](#13-analytics-and-operational-queries)
+14. [Troubleshooting](#14-troubleshooting)
+15. [Platform admin (provider control plane)](#15-platform-admin-provider-control-plane)
 16. [Product-specific features](#16-product-specific-features)
 17. [Interactive UX surface](#17-interactive-ux-surface)
-18. [Platform admin (provider control plane)](#18-platform-admin-provider-control-plane)
+18. [Smoke tests](#18-smoke-tests)
 
 ---
 
@@ -82,14 +83,14 @@ cp .env.example .env
 - Cron auth: `CRON_SECRET` (random string; required in prod)
 - Slack: `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`
 - AI drafting: `ANTHROPIC_API_KEY`
-- Platform admins: `PLATFORM_ADMIN_EMAILS` (comma-separated; grants the `/admin` provider console - see [§18](#18-platform-admin-provider-control-plane))
+- Platform admins: `PLATFORM_ADMIN_EMAILS` (comma-separated; grants the `/admin` provider console - see [§15](#15-platform-admin-provider-control-plane))
 
 The app treats any of these as "feature disabled" when missing - it will not
 crash, it will show an inline hint in the relevant settings page.
 
 ---
 
-## 4. Database: schema + migrations
+## 4. Database: schema and migrations
 
 ### SQLite (default - dev and light prod)
 
@@ -137,14 +138,14 @@ and you'll see the login screen.
 The first admin can:
 - Invite teammates from `/team`
 - Configure integrations at `/settings/integrations`
-- Configure SSO at `/settings/sso` (step 11)
+- Configure SSO at `/settings/sso` (step 10)
 
 > DecisionOS is open source with no plans or limits - unlimited members and
 > decisions per workspace.
 
 ---
 
-## 7. Email (review reminders + weekly digest)
+## 7. Email (review reminders and weekly digest)
 
 Without SMTP set, email calls log to the console - you can test the flow in
 dev without sending real mail.
@@ -182,12 +183,13 @@ curl -X POST \
 
 ## 8. Scheduled jobs (Vercel Cron)
 
-`vercel.json` registers two crons:
+`vercel.json` registers three crons:
 
 | Path                            | Schedule (UTC) | What it does                                       |
 | ------------------------------- | -------------- | -------------------------------------------------- |
 | `/api/cron/review-reminders`    | `0 8 * * *`    | Daily, emails owners of overdue decisions with one-click "Still valid / Assumptions changed" magic-link buttons. Also sends a Slack DM to users who have linked their Slack account. |
 | `/api/cron/weekly-digest`       | `0 9 * * 1`    | Monday, emails each user a digest with a **decision debt** summary, overdue reviews, recent team decisions, and upcoming reviews. |
+| `/api/cron/audit-retention`     | `37 3 * * *`   | Daily, prunes audit-trail entries older than the configured retention window (`AUDIT_RETENTION_DAYS`). |
 
 ### Protect the endpoints
 
@@ -282,12 +284,12 @@ a `SlackUserLink` row that the cron reads at send time.
 
 ---
 
-## 11. Single Sign-On (OIDC)
+## 10. Single Sign-On (OIDC)
 
 DecisionOS is open source with no paid plans, so SSO is available to every
 workspace. Configure it at **Settings → Single Sign-On**.
 
-### 11a. What to give your customer
+### 10a. What to give your customer
 
 Your customer's IdP admin (Okta / Google Workspace / Azure AD / Auth0 /
 JumpCloud) needs:
@@ -299,7 +301,7 @@ JumpCloud) needs:
 | Scopes                     | `openid email profile`                                                     |
 | Response type              | `code` (authorization code flow)                                           |
 
-### 11b. What you configure in DecisionOS
+### 10b. What you configure in DecisionOS
 
 Admin → **Settings → Single Sign-On**, fill in:
 
@@ -309,7 +311,7 @@ Admin → **Settings → Single Sign-On**, fill in:
 - **Allowed email domain** (optional but recommended) - e.g. `acme.com`
 - **Enforce SSO** - check to block email/password for this workspace
 
-### 11c. End-user login
+### 10c. End-user login
 
 1. User goes to `/login`, clicks **Sign in with SSO**.
 2. Types the workspace slug (e.g. `acme`).
@@ -321,7 +323,7 @@ Admin → **Settings → Single Sign-On**, fill in:
 
 ---
 
-## 12. AI drafting (Anthropic) - optional
+## 11. AI drafting with Anthropic (optional)
 
 Set `ANTHROPIC_API_KEY="sk-ant-api03-..."`. When set, the decision form's
 AI draft assist button becomes active and helps users turn a rough
@@ -333,9 +335,9 @@ via `SESSION_SECRET` before DB storage.
 
 ---
 
-## 13. Deploy to Vercel
+## 12. Deploy to Vercel
 
-### 13a. First deploy
+### 12a. First deploy
 
 ```bash
 # link the repo to Vercel (one-time)
@@ -344,18 +346,18 @@ npx vercel link
 npx vercel --prod
 ```
 
-### 13b. Set env vars in Vercel
+### 12b. Set env vars in Vercel
 
 In the Vercel dashboard → **Settings → Environment Variables** - add
 every value from your `.env`. `SESSION_SECRET` must be the same across
 environments or signed cookies/tokens from one env won't validate in another.
 
-### 13c. Cron jobs
+### 12c. Cron jobs
 
 `vercel.json` is already in the repo. After deploy, Vercel picks up the
 crons automatically. Verify at **Settings → Cron Jobs** in the Vercel UI.
 
-### 13d. External DBs
+### 12d. External DBs
 
 If you switched to Postgres, set `DATABASE_URL` to the production Postgres
 connection string. Run the schema push from a one-off box (or via
@@ -364,7 +366,7 @@ if you're comfortable doing so).
 
 ---
 
-## 14. Analytics + operational queries
+## 13. Analytics and operational queries
 
 DecisionOS writes first-party analytics to the `AnalyticsEvent` table -
 no third-party tracker, no cookies.
@@ -382,11 +384,6 @@ GROUP BY day ORDER BY day DESC;
 SELECT source, COUNT(*) FROM AnalyticsEvent
 WHERE event = 'decision.created' AND createdAt >= DATE('now', '-7 days')
 GROUP BY source;
-
--- Free-tier hit rate
-SELECT COUNT(DISTINCT workspaceId) AS hitting_limit
-FROM AnalyticsEvent
-WHERE event = 'limit.hit' AND createdAt >= DATE('now', '-30 days');
 ```
 
 Event catalogue (`src/lib/analytics.ts`):
@@ -400,7 +397,7 @@ Event catalogue (`src/lib/analytics.ts`):
 
 ---
 
-## 15. Troubleshooting
+## 14. Troubleshooting
 
 **Slack: "invalid_signature" on slash command**
 Your `SLACK_SIGNING_SECRET` is wrong, or your load balancer is rewriting
@@ -429,7 +426,7 @@ Double-check: `file:./dev.db` means relative to the project root - not
 
 ---
 
-## 18. Platform admin (provider control plane)
+## 15. Platform admin (provider control plane)
 
 If you run DecisionOS as a provider hosting **multiple companies**, the platform control plane
 lets your own staff manage every workspace from one place - separate from each company's own
@@ -685,4 +682,4 @@ When you add a feature with non-trivial pure-function logic, add a suite next to
 
 ---
 
-**That's the whole stack.** If something's unclear, check the [Troubleshooting](#15-troubleshooting) section above, or inspect the event log at `AnalyticsEvent` - every meaningful state change in the app writes a row there.
+**That's the whole stack.** If something's unclear, check the [Troubleshooting](#14-troubleshooting) section above, or inspect the event log at `AnalyticsEvent` - every meaningful state change in the app writes a row there.

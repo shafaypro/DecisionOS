@@ -1,11 +1,27 @@
 import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
 import bcrypt from "bcryptjs";
 
 const DATABASE_URL = process.env.DATABASE_URL ?? "file:./dev.db";
-const adapter = new PrismaLibSql({ url: DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+
+// Pick the driver adapter by URL scheme, mirroring src/lib/prisma.ts, so the
+// same `npm run seed` works against local SQLite and production Postgres.
+function createSeedClient(): PrismaClient {
+  if (DATABASE_URL.startsWith("postgresql://") || DATABASE_URL.startsWith("postgres://")) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Pool } = require("pg") as typeof import("pg");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PrismaPg } = require("@prisma/adapter-pg") as typeof import("@prisma/adapter-pg");
+    const adapter = new PrismaPg(new Pool({ connectionString: DATABASE_URL, max: 2 }));
+    return new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { PrismaLibSql } = require("@prisma/adapter-libsql") as typeof import("@prisma/adapter-libsql");
+  const adapter = new PrismaLibSql({ url: DATABASE_URL });
+  return new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
+}
+
+const prisma = createSeedClient();
 
 async function main() {
   console.log("🌱 Seeding database...");

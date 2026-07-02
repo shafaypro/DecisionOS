@@ -10,11 +10,11 @@ src/app/
 ├── (app)/                  ← PROTECTED group (session required, guarded by proxy.ts)
 │   ├── dashboard, decisions (+ [id], new, edit, history), board, graph,
 │   │   reviews, my-work, analytics, tags, team,
-│   │   settings (+ billing, integrations, sso, templates), slack/connect
+│   │   settings (+ audit, integrations, sso, templates), slack/connect
 │   └── layout.tsx          ← app shell: sidebar, top bar; loads session once
 ├── login/  signup/         ← PUBLIC auth pages (use src/actions/auth.ts server actions)
 ├── share/[id]/             ← PUBLIC read-only shared decision (rate-limited)
-├── page.tsx  pricing/      ← PUBLIC marketing
+├── page.tsx                ← PUBLIC marketing landing
 └── api/                    ← the API layer (see api-layer.md)
 ```
 

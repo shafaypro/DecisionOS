@@ -424,7 +424,7 @@ model AnalyticsEvent {
   id          String   @id @default(cuid())
   workspaceId String?
   userId      String?
-  event       String   // decision.created | decision.reviewed | slack.installed | checkout.completed | ...
+  event       String   // decision.created | decision.reviewed | slack.installed | ...
   source      String   @default("web") // web | slack_slash | slack_emoji | api | cron
   propsJson   String?
   createdAt   DateTime @default(now())

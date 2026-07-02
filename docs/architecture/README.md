@@ -31,8 +31,8 @@ For deployment/infra architecture (AWS ECS), see [`deploy/aws-ecs/docs/`](../../
                 ▼                                     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │ BUSINESS LOGIC & INFRA   src/lib/**                                   │
-│ pure logic (health, similarity, plans, graph) · session/crypto/env    │
-│ · rate-limit · logger · integrations (slack, sso, stripe, email)      │
+│ pure logic (health, similarity, graph) · session/crypto/env           │
+│ · rate-limit · logger · integrations (slack, sso, email)              │
 └───────────────────────────────────┬───────────────────────────────────┘
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -86,8 +86,8 @@ JSON response → client refreshes / router.refresh()
 ### C. Inbound webhook / integration (no user session)
 
 ```
-Slack / Stripe  ──POST──▶  src/app/api/{slack,billing}/...
-   │  verify HMAC signature + timestamp (replay window)   ← lib/slack/verify, billing/webhook
+Slack  ──POST──▶  src/app/api/slack/...
+   │  verify HMAC signature + timestamp (replay window)   ← lib/slack/verify
    │  decrypt stored bot/secret (lib/crypto)              ← AES-256-GCM
    │  prisma writes + best-effort outbound calls
    ▼

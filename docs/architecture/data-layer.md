@@ -106,4 +106,4 @@ Hot-path `@@index`es were added for cloud scale (cron and list queries previousl
   so the change and its audit event commit together.
 - Reads are workspace-scoped: queries filter by `session.workspaceId` (enforced in the API layer).
 - Connection pooling: `pg` Pool `max` defaults to 5 per instance; put a pooler (RDS Proxy /
-  PgBouncer) in front for high fan-out - see [deploy docs](../../deploy/aws-ecs/docs/ARCHITECTURE.md).
+  PgBouncer) in front for high fan-out - see [deploy docs](https://github.com/shafaypro/DecisionOS/blob/main/deploy/aws-ecs/docs/ARCHITECTURE.md).

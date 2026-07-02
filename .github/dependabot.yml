@@ -1,0 +1,28 @@
+# Keep dependencies current across every ecosystem the repo uses.
+# Grouped weekly PRs keep the noise manageable for a small maintainer team.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  # MkDocs toolchain for the docs site (requirements-docs.txt).
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly

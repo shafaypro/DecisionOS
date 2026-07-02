@@ -129,8 +129,8 @@ Utilities         date-fns · lucide-react · clsx · tailwind-merge · bcryptjs
 DecisionOS/
 ├── prisma/
 │   ├── schema.prisma               # Full data model (9 models)
-│   ├── seed.mts                    # Demo workspace seeder
-│   └── migrations/                 # SQLite migration history
+│   ├── seed.ts                     # Demo workspace seeder
+│   └── migrations/                 # Postgres migration history
 ├── prisma.config.ts                # Prisma v7 config (DATABASE_URL, adapter, migrations path)
 ├── src/
 │   ├── actions/                    # Legacy server actions (auth only; all mutations now in api/)
@@ -473,7 +473,7 @@ npm run dev          # Start development server (Turbopack, port 3001)
 npm run build        # Production build
 npm run start        # Start production server
 npm run lint         # ESLint check
-npm run test:smoke   # Run zero-dep smoke tests (13 suites: Slack HMAC, crypto, rate limiter, plan gate, decision health, similarity, graph layout, auth guards, utils, review token, decision retrieval, session, api foundation)
+npm run test:smoke   # Run zero-dep smoke tests (17 suites: Slack HMAC, crypto, rate limiter, decision health, similarity, graph layout, auth guards, utils, review token, decision retrieval, session, api foundation, workspace summary, cron auth, error reporting, platform auth, audit)
 npm run test:integration  # Vitest - real route handlers vs DB (tenant isolation, visibility, authz)
 npm test             # Smoke + integration
 npx tsc --noEmit     # TypeScript type check (no emit)

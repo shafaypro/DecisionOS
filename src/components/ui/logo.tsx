@@ -4,8 +4,8 @@ import type { TextSize } from "@/lib/typography";
 /**
  * DecisionOS brand mark - two rounded pillars, blue and red.
  *
- * Shared component so the landing, login, signup, and pricing surfaces render
- * one identical, on-brand logo. Server-safe (no hooks).
+ * Shared component so the landing, login, and signup surfaces render one
+ * identical, on-brand logo. Server-safe (no hooks).
  */
 
 interface LogoMarkProps {

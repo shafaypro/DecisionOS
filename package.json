@@ -2,9 +2,12 @@
   "name": "decision-os",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "predev": "node scripts/dev-db.mjs",
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "dev:db": "node scripts/dev-db.mjs",
     "prisma:generate": "prisma generate",
     "db:migrate:deploy": "prisma migrate deploy",
