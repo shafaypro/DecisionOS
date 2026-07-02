@@ -64,7 +64,7 @@ jobs:
       # error` keeps it advisory so it never blocks a merge for that infra
       # reason; remove it once GHAS is enabled to make this a hard gate.
       - name: Dependency review
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         continue-on-error: true
         with:
           fail-on-severity: high
