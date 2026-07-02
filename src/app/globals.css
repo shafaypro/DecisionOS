@@ -1,0 +1,381 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   DecisionOS design tokens
+   Single source of truth for the indigo → electric-blue "chosen path"
+   identity. Prefer these vars / utility classes over hand-typed hex values.
+   ========================================================================= */
+:root {
+  /* Brand ramp - Tailwind blue */
+  --brand-50:  var(--color-blue-50);
+  --brand-100: var(--color-blue-100);
+  --brand-200: var(--color-blue-200);
+  --brand-300: var(--color-blue-300);
+  --brand-400: var(--color-blue-400);
+  --brand-500: var(--color-blue-500);
+  --brand-600: var(--color-blue-600);
+  --brand-700: var(--color-blue-700);
+
+  /* Primary brand fill - alias onto the ramp */
+  --accent: var(--brand-600);
+
+  /* "Gradient" tokens kept as names for back-compat, but now flat solids */
+  --gradient-brand: var(--accent);
+  --gradient-brand-text: var(--accent);
+  --gradient-sidebar: #0d0d1a;
+  --gradient-ink: #0b0b16;
+
+  /* Surfaces */
+  --background: var(--color-slate-100);
+  --foreground: var(--color-slate-800);
+  --muted-foreground: var(--color-slate-500);
+  --card-bg: var(--color-white);
+  --card-border: color-mix(in srgb, var(--brand-500) 10%, transparent);
+  --hairline: color-mix(in srgb, var(--color-slate-900) 7%, transparent);
+
+  /* Elevation - all legacy tokens now alias the unified layered shadow.
+     Single source of truth lives in @theme as --shadow-soft (the `shadow-soft` utility). */
+  --card-shadow: var(--shadow-soft);
+  --card-shadow-hover: var(--shadow-soft);
+  --shadow-brand: var(--shadow-soft);
+  --shadow-brand-lg: var(--shadow-soft);
+
+  /* Status accents (semantic) */
+  --ok: var(--color-emerald-500);
+  --warn: var(--color-amber-500);
+  --danger: var(--color-rose-500);
+
+  /* Typography - semantic text colors */
+  --text-primary: var(--foreground);
+  --text-secondary: var(--color-slate-700);
+  --text-muted: var(--muted-foreground);
+  --text-subtle: var(--color-slate-400);
+  --text-faint: var(--color-slate-300);
+  --text-disabled: var(--color-slate-400);
+  --text-brand: var(--brand-600);
+  --text-brand-soft: var(--brand-500);
+  --text-inverse: var(--color-white);
+  --text-danger: var(--color-red-600);
+  --text-success: var(--color-emerald-700);
+  --text-warning: var(--color-amber-700);
+  --text-warning-soft: var(--color-amber-600);
+
+  /* Caps-label text style - Space Mono, uppercase. Shared by badges + button labels. */
+  --label-font-size: 0.6875rem;  /* 11px */
+  --label-tracking: 0.5px;
+}
+
+@theme inline {
+  /* Radii - single source of truth: drives the rounded-xs utility AND var(--radius-xs) */
+  --radius-xs: 0.125rem;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-50:  var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-button: var(--font-space-mono), "SFMono-Regular", Consolas, monospace;
+
+  /* Text colors → text-text-* utilities */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+  --color-text-faint: var(--text-faint);
+  --color-text-disabled: var(--text-disabled);
+  --color-text-brand: var(--text-brand);
+  --color-text-brand-soft: var(--text-brand-soft);
+  --color-text-inverse: var(--text-inverse);
+  --color-text-danger: var(--text-danger);
+  --color-text-success: var(--text-success);
+  --color-text-warning: var(--text-warning);
+  --color-text-warning-soft: var(--text-warning-soft);
+
+  /*
+   * Type scale - line-heights are multiples of 4px at 16px root.
+   * Each --text-*--line-height pairs with its size utility (text-2xs … text-5xl).
+   */
+  --text-2xs: 0.625rem;          /* 10px → 16px leading */
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.8125rem;          /* 13px → 16px leading */
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;           /* 14px → 20px leading */
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;             /* 16px → 24px leading */
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;           /* 18px → 28px leading */
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;            /* 20px → 28px leading */
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;            /* 24px → 32px leading */
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 1.875rem;          /* 30px → 36px leading */
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl: 2.25rem;           /* 36px → 40px leading */
+  --text-4xl--line-height: 2.5rem;
+  --text-5xl: 3rem;              /* 48px → 48px leading */
+  --text-5xl--line-height: 3rem;
+
+  /* Leading scale (4px grid) - leading-token-* utilities */
+  --leading-token-4: 1rem;
+  --leading-token-5: 1.25rem;
+  --leading-token-6: 1.5rem;
+  --leading-token-7: 1.75rem;
+  --leading-token-8: 2rem;
+  --leading-token-9: 2.25rem;
+  --leading-token-10: 2.5rem;
+  --leading-token-12: 3rem;
+
+  /* Tracking scale - tracking-token-* utilities */
+  --tracking-token-tighter: -0.05em;
+  --tracking-token-tight: -0.025em;
+  --tracking-token-normal: 0em;
+  --tracking-token-wide: 0.025em;
+  --tracking-token-wider: 0.05em;
+  --tracking-token-widest: 0.1em;
+  --tracking-token-caps: 0.14em;
+}
+
+/* Non-inline so it BOTH emits the --shadow-soft :root var (used by the elevation
+   aliases above + inline boxShadow styles) AND generates a `shadow-soft` utility
+   that composes with ring-* like the built-in shadow utilities. */
+@theme {
+  /* ── THE SHADOW. Tweak the numbers below. ────────────────────────────────
+     Four layers, top → bottom:
+       1. inner highlight  - faint top bevel (white)
+       2. close drop       - tight contact shadow
+       3. far drop         - soft ambient shadow
+       4. ring (the edge)  - replaces a border. Tinted from the element's OWN
+                             color via currentColor, so it's bg-aware:
+                             emerald card → emerald ring, dark bar → white ring,
+                             neutral card → neutral ring. No per-element setup.
+
+     Knobs:
+       • edge strength   → the `8%` in the ring's color-mix (lower = fainter)
+       • edge color      → override per element with [--shadow-ring:<color>]
+       • elevation       → the two drop opacities (0.03 / 0.02) + blur/offset
+       • highlight       → --shadow-highlight (white %) */
+  --shadow-soft:
+    inset 0 1px 0.5px 0 var(--shadow-highlight, rgb(255 255 255 / 0.06)),
+    inset 0 -1px 0.5px 0 var(--shadow-lowlight, transparent),
+    0 1px 2px -1px rgb(from var(--color-slate-900) r g b / 0.08),
+    0 3px 5px -2px rgb(from var(--color-slate-900) r g b / 0.06),
+    0 0 0 1px var(--shadow-ring, rgb(from color-mix(in srgb, var(--color-slate-300) 100%, currentColor) r g b / 0.4));
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--brand-500) 18%, transparent);
+  color: var(--color-slate-800);
+}
+
+/* ============================================================================
+   Reusable brand utilities
+   ========================================================================= */
+.text-gradient-brand {
+  background: var(--gradient-brand-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.bg-gradient-brand {
+  background: var(--gradient-brand);
+}
+
+.surface {
+  background: var(--card-bg);
+  border-radius: var(--radius-xs);
+  box-shadow: var(--card-shadow); /* ring layer in --shadow-soft is the edge */
+}
+
+/* Frosted dark panel - for hero / marketing sections over the ink gradient */
+.glass-dark {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Caps label - Space Mono, uppercase, 11px/500/0.5px. Used by badges + button labels.
+   Single source of truth for this text style; references design tokens. */
+.caps-label {
+  font-family: var(--font-space-mono), "SFMono-Regular", Consolas, monospace;
+  text-transform: uppercase;
+  font-size: var(--label-font-size);
+  line-height: 1rem; /* 16px - 4px grid */
+  font-weight: 500;
+  letter-spacing: var(--label-tracking);
+  /* Trim line box to cap height so caps optically center against dots/icons
+     in flex items-center rows (badges, status pills) - kills the 1px shift.
+     No-op on browsers without text-box-trim. */
+  text-box-trim: trim-both;
+  text-box-edge: cap alphabetic;
+}
+
+/* Tinted pill used for eyebrow labels */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--text-2xs);
+  line-height: var(--text-2xs--line-height);
+  font-weight: 700;
+  letter-spacing: var(--tracking-token-caps);
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+/* ============================================================================
+   Responsive type scale (fluid)
+   ========================================================================= */
+.display-1 {
+  font-size: clamp(2.4rem, 1.4rem + 4.4vw, 4.25rem);
+  line-height: 3.5rem; /* 56px - 4px grid */
+  letter-spacing: var(--tracking-token-tight);
+  font-weight: 800;
+}
+.display-2 {
+  font-size: clamp(1.8rem, 1.2rem + 2.4vw, 2.75rem);
+  line-height: 2.75rem; /* 44px - 4px grid */
+  letter-spacing: var(--tracking-token-tight);
+  font-weight: 700;
+}
+
+/* ============================================================================
+   Layout helpers (kept from the original - do not rename, screens depend on them)
+   ========================================================================= */
+.app-page {
+  padding: 2.25rem;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.content-area {
+  background: var(--background);
+}
+
+/* ============================================================================
+   Motion
+   ========================================================================= */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes soft-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 14%, transparent); }
+  50%      { box-shadow: 0 0 0 6px transparent; }
+}
+
+/* Celebratory pop - fade + gentle scale, for task-completion confirmations */
+@keyframes celebrate {
+  0%   { opacity: 0; transform: scale(0.92); }
+  55%  { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+.animate-enter {
+  animation: page-enter 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-fade-in {
+  animation: fade-in 400ms ease both;
+}
+.animate-celebrate {
+  animation: celebrate 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-enter-delay-1 { animation-delay: 60ms; }
+.animate-enter-delay-2 { animation-delay: 120ms; }
+.animate-enter-delay-3 { animation-delay: 180ms; }
+.animate-enter-delay-4 { animation-delay: 240ms; }
+
+.lift-card {
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease;
+}
+.lift-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
+}
+
+.attention-ring {
+  animation: soft-pulse 2.4s ease-in-out infinite;
+}
+
+/* Flat accent hairline - for premium accents/dividers */
+.shimmer-line {
+  background: var(--accent);
+  opacity: 0.55;
+}
+
+/* Glowing indigo ring on focus-visible for keyboard navigation */
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-enter,
+  .animate-fade-in,
+  .animate-celebrate,
+  .attention-ring,
+  .shimmer-line,
+  .lift-card {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-page {
+    padding: 1.25rem;
+  }
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

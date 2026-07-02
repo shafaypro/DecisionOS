@@ -1,0 +1,476 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  // Production target is PostgreSQL (managed RDS / Cloud SQL / Azure DB).
+  // Local SQLite dev is handled by `npm run dev` (scripts/dev-db.mjs), which
+  // regenerates the client against a derived sqlite schema - this committed
+  // schema and its migrations always target Postgres.
+  provider = "postgresql"
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  // Lifecycle - set by the platform (provider) console. A suspended workspace is
+  // locked out for its own members but still reachable by a platform admin.
+  status      String   @default("active")            // active | suspended
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships  WorkspaceMembership[]
+  decisions    Decision[]
+  tags         Tag[]
+  templates    DecisionTemplate[]
+  integrations WorkspaceIntegration[]
+  actionItems  ActionItem[]
+  slackLink    SlackWorkspaceLink?
+  ssoConfig    WorkspaceSsoConfig?
+}
+
+// Roles: admin | member | viewer
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships           WorkspaceMembership[]
+  createdDecisions      Decision[]            @relation("CreatedBy")
+  ownedDecisions        Decision[]            @relation("OwnedBy")
+  notes                 DecisionNote[]
+  noteReplies           NoteReply[]
+  events                DecisionEvent[]
+  reviews               DecisionReview[]
+  links                 DecisionLink[]
+  decisionVersions      DecisionVersion[]
+  decisionRelations     DecisionRelation[]
+  assignedActionItems   ActionItem[]          @relation("ActionItemAssignee")
+  createdActionItems    ActionItem[]          @relation("ActionItemCreator")
+  notifications         InAppNotification[]
+  slackLink             SlackUserLink?
+  reactions             DecisionReaction[]
+  watchedDecisions      DecisionWatcher[]
+}
+
+model WorkspaceMembership {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        String   @default("member") // admin | member | viewer
+  joinedAt    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+}
+
+model Decision {
+  id                     String    @id @default(cuid())
+  workspaceId            String
+  createdByUserId        String
+  ownerUserId            String?
+  title                  String
+  summary                String?
+  category               String    @default("other")
+  status                 String    @default("draft")
+  outcomeStatus          String    @default("unknown")
+  problemStatement       String?
+  chosenOption           String?
+  rationale              String?
+  alternativesConsidered String?
+  assumptions            String?
+  risks                  String?
+  impactLevel            String    @default("medium")
+  decisionDate           DateTime?
+  reviewDate             DateTime?
+  reviewedAt             DateTime?
+  visibility             String    @default("workspace")
+  capturedVia            String?   @default("web") // web | slack_slash | slack_emoji
+  // RACI-lite: accountable = single DRI; consultedIds = JSON array of user IDs
+  accountableUserId      String?
+  consultedIds           String?   // JSON: ["userId1", "userId2", ...]
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy     User               @relation("CreatedBy", fields: [createdByUserId], references: [id])
+  owner         User?              @relation("OwnedBy", fields: [ownerUserId], references: [id])
+  notes         DecisionNote[]
+  links         DecisionLink[]
+  events        DecisionEvent[]
+  reviews       DecisionReview[]
+  tags          DecisionTag[]
+  versions      DecisionVersion[]
+  relationsFrom DecisionRelation[] @relation("RelationFrom")
+  relationsTo   DecisionRelation[] @relation("RelationTo")
+  actionItems   ActionItem[]
+  reactions     DecisionReaction[]
+  watchers      DecisionWatcher[]
+
+  @@index([workspaceId])
+  @@index([workspaceId, status])
+  @@index([workspaceId, status, updatedAt]) // covers the common "list with filter + sort" pattern
+  @@index([reviewDate])
+  @@index([reviewDate, status])             // covers cron review-reminder queries
+  @@index([ownerUserId])
+  @@index([updatedAt])
+}
+
+// Per-user subscription to a decision. Watchers receive an in-app notification
+// (and an email, if SMTP is configured) whenever the decision changes.
+model DecisionWatcher {
+  id         String   @id @default(cuid())
+  decisionId String
+  userId     String
+  source     String   @default("manual") // manual | creator | owner
+  createdAt  DateTime @default(now())
+
+  decision Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([decisionId, userId])
+  @@index([userId])
+  @@index([decisionId])
+}
+
+// Lightweight emoji reactions on a decision. One row per (decision, user, emoji).
+// Flipping the same emoji is a toggle: add or remove the row.
+model DecisionReaction {
+  id         String   @id @default(cuid())
+  decisionId String
+  userId     String
+  emoji      String   // short codename: "thumbsup", "thumbsdown", "eyes", "warning", "rocket", "question"
+  createdAt  DateTime @default(now())
+
+  decision Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([decisionId, userId, emoji])
+  @@index([decisionId])
+}
+
+model DecisionNote {
+  id         String   @id @default(cuid())
+  decisionId String
+  userId     String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  decision Decision    @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  user     User        @relation(fields: [userId], references: [id])
+  replies  NoteReply[]
+
+  @@index([decisionId])
+  @@index([userId])
+  @@index([decisionId, userId]) // for "did this user comment on this decision?"
+}
+
+// Comment threads - replies to notes
+model NoteReply {
+  id        String   @id @default(cuid())
+  noteId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  note DecisionNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id])
+
+  @@index([noteId])
+}
+
+model DecisionLink {
+  id              String   @id @default(cuid())
+  decisionId      String
+  label           String
+  url             String
+  linkType        String   @default("other")
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  decision  Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  createdBy User     @relation(fields: [createdByUserId], references: [id])
+
+  @@index([decisionId])
+}
+
+model DecisionReview {
+  id               String   @id @default(cuid())
+  decisionId       String
+  reviewedByUserId String
+  outcomeStatus    String
+  summary          String?
+  lessonsLearned   String?
+  followUpAction   String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  decision   Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  reviewedBy User     @relation(fields: [reviewedByUserId], references: [id])
+
+  @@index([decisionId])
+}
+
+model DecisionEvent {
+  id           String   @id @default(cuid())
+  decisionId   String
+  userId       String
+  eventType    String
+  oldValueJson String?
+  newValueJson String?
+  createdAt    DateTime @default(now())
+
+  decision Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([decisionId])
+  @@index([userId])          // for "all events by user X" (activity feed)
+  @@index([decisionId, userId]) // for "user's activity on a specific decision"
+}
+
+// Decision versioning - full snapshot on every edit
+model DecisionVersion {
+  id           String   @id @default(cuid())
+  decisionId   String
+  versionNum   Int
+  snapshotJson String
+  changedById  String
+  createdAt    DateTime @default(now())
+
+  decision  Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  changedBy User     @relation(fields: [changedById], references: [id])
+
+  @@index([decisionId])
+}
+
+// Decision graph - typed relations between decisions
+model DecisionRelation {
+  id              String   @id @default(cuid())
+  fromDecisionId  String
+  toDecisionId    String
+  relationType    String   // supersedes | depends_on | relates_to | conflicts_with
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  fromDecision Decision @relation("RelationFrom", fields: [fromDecisionId], references: [id], onDelete: Cascade)
+  toDecision   Decision @relation("RelationTo",   fields: [toDecisionId],   references: [id], onDelete: Cascade)
+  createdBy    User     @relation(fields: [createdByUserId], references: [id])
+
+  @@unique([fromDecisionId, toDecisionId, relationType])
+  @@index([fromDecisionId])
+  @@index([toDecisionId])
+}
+
+model Tag {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  color       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  decisions DecisionTag[]
+
+  @@unique([workspaceId, name])
+}
+
+model DecisionTag {
+  id         String   @id @default(cuid())
+  decisionId String
+  tagId      String
+  createdAt  DateTime @default(now())
+
+  decision Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([decisionId, tagId])
+  @@index([tagId]) // for "all decisions with tag X" queries
+}
+
+// Decision templates - global (workspaceId=null) or workspace-custom
+model DecisionTemplate {
+  id            String   @id @default(cuid())
+  workspaceId   String?
+  name          String
+  category      String
+  description   String?
+  defaultValues String   // JSON blob of Decision fields to pre-fill
+  isBuiltIn     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// Workspace integrations - Slack, Teams, email credentials
+model WorkspaceIntegration {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  integrationType String   // slack | teams | email
+  configJson      String   // AES-256-GCM encrypted JSON
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, integrationType])
+}
+
+// Action items - tasks generated from or linked to decisions
+model ActionItem {
+  id          String    @id @default(cuid())
+  workspaceId String
+  decisionId  String?
+  title       String
+  description String?
+  status      String    @default("open")    // open | in_progress | in_review | done | cancelled
+  priority    String    @default("medium")  // low | medium | high | critical
+  assigneeId  String?
+  createdById String
+  dueDate     DateTime?
+  position    Int       @default(0)         // for ordering within a board column
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  decision   Decision?  @relation(fields: [decisionId],  references: [id], onDelete: SetNull)
+  assignee   User?      @relation("ActionItemAssignee",  fields: [assigneeId],  references: [id])
+  createdBy  User       @relation("ActionItemCreator",   fields: [createdById], references: [id])
+
+  @@index([workspaceId])
+  @@index([assigneeId])
+  @@index([workspaceId, status])
+}
+
+// In-app notifications
+model InAppNotification {
+  id          String   @id @default(cuid())
+  userId      String
+  workspaceId String
+  type        String   // assigned | mentioned | review_due | status_changed | action_done
+  title       String
+  body        String?
+  linkUrl     String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, isRead, createdAt]) // for paginated unread feed ordered by time
+}
+
+// SSO configuration - one OIDC provider per workspace (Enterprise plan)
+model WorkspaceSsoConfig {
+  id                 String   @id @default(cuid())
+  workspaceId        String   @unique
+  provider           String   @default("oidc")      // oidc | saml (saml reserved for future)
+  issuerUrl          String                         // e.g. https://accounts.google.com
+  clientId           String
+  clientSecretEnc    String                         // AES-256-GCM encrypted
+  allowedEmailDomain String?                        // e.g. "acme.com" - if set, only these emails may sign in
+  enforced           Boolean  @default(false)       // when true, password login is disabled for workspace members
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// Slack workspace install - one per DecisionOS workspace
+model SlackWorkspaceLink {
+  id                  String   @id @default(cuid())
+  decisionWorkspaceId String   @unique
+  slackWorkspaceId    String   @unique
+  slackTeamName       String?
+  slackBotUserId      String?
+  slackBotToken       String   // AES-256-GCM encrypted
+  installedByUserId   String
+  triggerEmoji        String   @default("lock")
+  installedAt         DateTime @default(now())
+  isActive            Boolean  @default(true)
+
+  workspace Workspace @relation(fields: [decisionWorkspaceId], references: [id], onDelete: Cascade)
+}
+
+// Slack user ↔ DecisionOS user linking
+model SlackUserLink {
+  id               String   @id @default(cuid())
+  decisionUserId   String   @unique
+  slackUserId      String
+  slackWorkspaceId String
+  linkedAt         DateTime @default(now())
+
+  user User @relation(fields: [decisionUserId], references: [id], onDelete: Cascade)
+
+  @@unique([slackUserId, slackWorkspaceId])
+}
+
+// Product analytics events - first-party, zero external dependency
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  workspaceId String?
+  userId      String?
+  event       String   // decision.created | decision.reviewed | slack.installed | checkout.completed | ...
+  source      String   @default("web") // web | slack_slash | slack_emoji | api | cron
+  propsJson   String?
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId, event, createdAt])
+  @@index([event, createdAt])
+  @@index([userId])          // for cohort-level analysis (all events by user X)
+}
+
+// Notification delivery log
+model NotificationLog {
+  id          String   @id @default(cuid())
+  workspaceId String
+  decisionId  String?
+  type        String   // review_overdue
+  channel     String   // slack | teams | email
+  status      String   @default("sent") // sent | failed
+  error       String?
+  sentAt      DateTime @default(now())
+}
+
+// Immutable security & compliance audit trail (SOC 2 CC6/CC7, GDPR Art. 30/32).
+//
+// Append-only record of *who did what* to security-relevant resources:
+// authentication, membership, integrations, SSO, and GDPR data-subject actions
+// (export / erasure). Rows are never updated or deleted by application code.
+//
+// Deliberately NOT a Prisma relation to User: the actor is denormalized (email +
+// id as plain strings) so the trail survives an actor's account deletion - a
+// cascade would erase the very evidence a SOC 2 auditor needs. Distinct from
+// AnalyticsEvent (product metrics) and DecisionEvent (per-decision history).
+model AuditLog {
+  id           String   @id @default(cuid())
+  workspaceId  String?  // null for pre-workspace events (e.g. a failed login)
+  actorUserId  String?  // null for anonymous / system actors
+  actorEmail   String?  // denormalized so attribution outlives user deletion
+  action       String   // catalog value, e.g. "auth.login" (see src/lib/audit.ts)
+  targetType   String?  // "user" | "workspace" | "integration" | "sso" | ...
+  targetId     String?
+  outcome      String   @default("success") // success | failure
+  ip           String?
+  userAgent    String?
+  metadataJson String?  // redacted JSON - never secrets
+  createdAt    DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([actorUserId])
+  @@index([action, createdAt])
+}

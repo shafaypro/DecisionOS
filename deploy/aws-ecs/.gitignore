@@ -1,0 +1,15 @@
+# Terraform state may contain secrets (SESSION_SECRET, DB password) - never commit it.
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# Local variable files
+terraform.tfvars
+*.auto.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

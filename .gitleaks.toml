@@ -1,0 +1,34 @@
+# gitleaks configuration for DecisionOS.
+#
+# Extends the built-in ruleset (AWS, Stripe, Slack, GitHub, generic API keys,
+# private keys, …) and adds allowlists so CI fails on REAL secrets, not on the
+# documented placeholders in example/test/docs files. Keep allowlists tight:
+# every entry here is a hole in secret scanning.
+
+title = "DecisionOS gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholders and test fixtures - never real credentials"
+
+# Files that intentionally contain example/placeholder secrets.
+paths = [
+  '''\.env\.example$''',
+  '''(^|/)tests/''',          # smoke + integration test fixtures (fake tokens)
+  '''(^|/)docs/''',           # setup guides with example values
+  '''(^|/)deploy/''',         # IaC templates; secrets are generated, not literal
+  '''package-lock\.json$''',
+]
+
+# Specific placeholder values used across config/tests.
+regexes = [
+  '''dev-only-insecure-session-secret-change-me''',
+  '''ci-placeholder-session-secret[a-z-]*''',
+  '''vitest-integration-secret[a-z-]*''',
+  '''whsec_(test|integration)[a-z0-9_]*''',
+  '''slack-signing-secret-integration''',
+  '''xoxb-test-token''',
+  '''a-random-secret-for-cron-routes''',
+]

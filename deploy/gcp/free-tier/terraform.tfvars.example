@@ -1,0 +1,30 @@
+project_id = "your-gcp-project-id"
+
+# The repo must be reachable by the VM. Public HTTPS works out of the box.
+repo_url = "https://github.com/shafaypro/DecisionOS.git"
+repo_ref = "dev2"
+
+# Free-tier eligible regions: us-central1, us-east1, us-west1.
+region = "us-central1"
+zone   = "us-central1-a"
+
+# Leave blank for HTTP on the VM IP. For HTTPS, set a domain and use a static IP.
+domain_name   = ""
+use_static_ip = false
+
+# Defaults to Google IAP TCP forwarding only. Replace with your office/home CIDR
+# if you want direct SSH instead.
+ssh_source_ranges = ["35.235.240.0/20"]
+
+# Optional. If left blank, the VM generates and preserves these in /opt/decisionos/.env.
+session_secret = ""
+cron_secret    = ""
+
+# Optional integrations.
+smtp_host = ""
+smtp_port = "587"
+smtp_user = ""
+smtp_pass = ""
+smtp_from = ""
+
+anthropic_api_key = ""

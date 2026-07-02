@@ -1,0 +1,38 @@
+# Local development & verification infrastructure.
+#
+#   docker compose up -d
+#   DATABASE_URL=postgres://decisionos:devpass@localhost:5432/decisionos \
+#   REDIS_URL=redis://localhost:6379 \
+#     npx prisma migrate deploy && npm run seed && npm run dev
+#
+# Postgres mirrors the production target (managed RDS / Cloud SQL / Azure DB);
+# Redis backs the distributed rate limiter when running more than one instance.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: decisionos
+      POSTGRES_PASSWORD: devpass
+      POSTGRES_DB: decisionos
+    ports:
+      - "5432:5432"
+    volumes:
+      - decisionos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U decisionos -d decisionos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  decisionos_pgdata:

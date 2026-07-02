@@ -1,0 +1,72 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly sweep (Mon 06:23 UTC) so newly-disclosed issues are caught even
+    # when no one is pushing. Off-minute to avoid the top-of-hour stampede.
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege by default; jobs opt into more only where needed.
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          # Full history so the scan covers secrets that were committed and
+          # later removed, not just the current tree.
+          fetch-depth: 0
+
+      # Runs the MIT-licensed gitleaks CLI via its image directly (no
+      # gitleaks-action license needed). Fails the job on any finding.
+      # `--redact` keeps the secret value out of the public CI log.
+      - name: Run gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest \
+            detect \
+            --source=/repo \
+            --config=/repo/.gitleaks.toml \
+            --redact \
+            --verbose \
+            --exit-code=1
+
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Only meaningful on PRs - it diffs the base branch against the head.
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Flags newly-added dependencies with known high+ vulnerabilities or
+      # disallowed licenses before they merge.
+      #
+      # Requires GitHub's Dependency Graph + Advanced Security to be enabled on
+      # the repo (Settings → Code security). Until then this action errors with
+      # "Dependency review is not supported on this repository". `continue-on-
+      # error` keeps it advisory so it never blocks a merge for that infra
+      # reason; remove it once GHAS is enabled to make this a hard gate.
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+        continue-on-error: true
+        with:
+          fail-on-severity: high
+          # GPL/AGPL etc. are incompatible with this MIT project.
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0

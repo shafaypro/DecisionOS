@@ -1,0 +1,71 @@
+name: 🐛 Bug report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! Please search existing issues first to avoid duplicates.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+      placeholder: When I…, I expected…, but instead…
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact sequence to trigger the bug.
+      placeholder: |
+        1. Go to '...'
+        2. Click '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / screenshots
+      description: Browser console or `npm run dev` output. Redact any secrets.
+      render: shell
+    validations:
+      required: false
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How are you running DecisionOS?
+      options:
+        - Local dev (npm run dev, SQLite)
+        - Docker Compose
+        - AWS EC2 / ECS
+        - Kubernetes
+        - Other (describe below)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Output of `git rev-parse --short HEAD` or the image tag.
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node version, browser (if a UI bug).
+      placeholder: macOS 15, Node 20.11, Chrome 124
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: This is not a security vulnerability (those go through SECURITY.md, privately).
+          required: true

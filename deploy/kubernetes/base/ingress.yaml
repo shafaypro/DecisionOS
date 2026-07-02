@@ -1,0 +1,32 @@
+# Requires an Ingress controller (nginx-ingress, traefik, ALB controller, etc.)
+# and cert-manager for TLS.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: decisionos
+  namespace: decisionos
+  labels:
+    app.kubernetes.io/name: decisionos
+  annotations:
+    # nginx-ingress
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    # cert-manager
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - decisions.example.com  # Override in overlay
+      secretName: decisionos-tls
+  rules:
+    - host: decisions.example.com  # Override in overlay
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: decisionos
+                port:
+                  number: 80

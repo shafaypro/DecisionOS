@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/review-reminders",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-digest",
+      "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/cron/audit-retention",
+      "schedule": "37 3 * * *"
+    }
+  ]
+}

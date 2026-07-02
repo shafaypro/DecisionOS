@@ -1,0 +1,58 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly so the security-extended query suite re-runs against unchanged
+    # code as CodeQL's rules improve. Off-minute on purpose.
+    - cron: "41 5 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: CodeQL analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # Required to upload results to the repo's code-scanning dashboard.
+      security-events: write
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # security-extended adds higher-recall security queries on top of the
+          # default suite. JS/TS needs no build step - CodeQL extracts source.
+          queries: security-extended
+
+      # Uploading results to the code-scanning dashboard requires GitHub
+      # Advanced Security on the repo (Settings → Code security). Without it
+      # this step errors on upload. `continue-on-error` keeps the check
+      # advisory so it never blocks a merge for that infra reason; remove it
+      # once GHAS is enabled to make CodeQL a hard gate.
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        continue-on-error: true
+        with:
+          category: "/language:${{ matrix.language }}"

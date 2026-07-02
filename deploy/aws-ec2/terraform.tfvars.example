@@ -1,0 +1,31 @@
+# ── Required ──────────────────────────────────────────────────────────
+# Generate secrets:
+#   openssl rand -hex 32   → session_secret
+#   openssl rand -hex 16   → postgres_password, cron_secret
+
+session_secret    = "CHANGE_ME"
+postgres_password = "CHANGE_ME"
+cron_secret       = "CHANGE_ME"
+
+# ── Region & sizing ──────────────────────────────────────────────────
+aws_region    = "us-east-1"
+instance_type = "t3.micro"    # ~$8/mo; use t3.small ($15/mo) for 50+ users
+disk_size_gb  = 20
+
+# ── SSH access (optional) ───────────────────────────────────────────
+# ssh_key_name    = "my-key-pair"
+# ssh_cidr_blocks = ["203.0.113.0/32"]  # restrict to your IP
+
+# ── Domain (optional - leave empty for IP-only) ────────────────────
+# Point your DNS A record to the Elastic IP from `terraform output`.
+# domain = "decisions.example.com"
+
+# ── Email (optional) ────────────────────────────────────────────────
+# smtp_host = "smtp.example.com"
+# smtp_port = "587"
+# smtp_user = "apikey"
+# smtp_pass = "SG.xxx"
+# smtp_from = "noreply@example.com"
+
+# ── AI (optional) ──────────────────────────────────────────────────
+# anthropic_api_key = "sk-ant-..."

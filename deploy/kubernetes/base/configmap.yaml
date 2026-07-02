@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: decisionos-config
+  namespace: decisionos
+  labels:
+    app.kubernetes.io/name: decisionos
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  HOSTNAME: "0.0.0.0"
+  LOG_LEVEL: "info"
+  DATABASE_POOL_MAX: "5"

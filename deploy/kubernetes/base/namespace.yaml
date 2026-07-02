@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: decisionos
+  labels:
+    app.kubernetes.io/name: decisionos
+    app.kubernetes.io/part-of: decisionos

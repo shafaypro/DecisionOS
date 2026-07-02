@@ -1,0 +1,133 @@
+# Production Docker Compose - single-server deployment.
+#
+# Services: Postgres 16 + Redis 7 + one-shot migrator + app + Caddy (auto-TLS).
+#
+# Quick start:
+#   cp .env.example .env && $EDITOR .env
+#   docker compose up -d
+#   curl https://your-domain.com/api/seed
+#
+# Upgrades:
+#   git pull && docker compose build && docker compose up -d
+#   (migrator runs automatically before the app starts)
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-decisionos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-decisionos}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-decisionos} -d ${POSTGRES_DB:-decisionos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  migrate:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+      target: migrator
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-decisionos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-decisionos}
+      SESSION_SECRET: ${SESSION_SECRET}
+    networks:
+      - internal
+
+  app:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+      target: runner
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-decisionos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-decisionos}
+      SESSION_SECRET: ${SESSION_SECRET}
+      REDIS_URL: redis://redis:6379
+      NEXT_PUBLIC_APP_URL: ${APP_URL:-http://localhost:3000}
+      # Set to "false" for HTTP-only/IP deployments so the session cookie is not
+      # marked Secure (a Secure cookie is dropped by browsers over plain HTTP).
+      COOKIE_SECURE: ${COOKIE_SECURE:-}
+      CRON_SECRET: ${CRON_SECRET}
+      # Comma-separated allow-list of platform super-admin emails (the /admin
+      # control plane that spans all companies). Empty = no platform admins.
+      PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Optional integrations - leave blank to disable
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SLACK_CLIENT_ID: ${SLACK_CLIENT_ID:-}
+      SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET:-}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - internal
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - internal
+      - external
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+
+networks:
+  internal:
+    driver: bridge
+  external:
+    driver: bridge

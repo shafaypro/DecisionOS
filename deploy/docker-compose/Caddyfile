@@ -1,0 +1,25 @@
+# Replace with your domain. For IP-only access, use `:80` instead.
+#
+# With a real domain, Caddy automatically provisions and renews Let's Encrypt
+# TLS certificates - no configuration needed.
+#
+# IP-only (no TLS):
+#   :80 {
+#     reverse_proxy app:3000
+#   }
+
+{$DOMAIN::80} {
+	reverse_proxy app:3000
+
+	encode gzip
+
+	header {
+		-Server
+		X-Robots-Tag "noindex, nofollow"
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

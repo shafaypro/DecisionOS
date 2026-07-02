@@ -1,0 +1,64 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# Override the container image with your registry
+images:
+  - name: decisionos
+    newName: 123456789012.dkr.ecr.us-east-1.amazonaws.com/decisionos
+    newTag: latest
+  - name: decisionos-migrator
+    newName: 123456789012.dkr.ecr.us-east-1.amazonaws.com/decisionos-migrator
+    newTag: latest
+
+patches:
+  # Override replicas for production
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: decisionos
+      spec:
+        replicas: 3
+  # Override Ingress hostname
+  - patch: |-
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: decisionos
+      spec:
+        tls:
+          - hosts:
+              - decisions.example.com
+            secretName: decisionos-tls
+        rules:
+          - host: decisions.example.com
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: decisionos
+                      port:
+                        number: 80
+  # Production resource limits
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: decisionos
+      spec:
+        template:
+          spec:
+            containers:
+              - name: app
+                resources:
+                  requests:
+                    cpu: 500m
+                    memory: 512Mi
+                  limits:
+                    cpu: "2"
+                    memory: "1Gi"

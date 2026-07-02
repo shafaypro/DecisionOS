@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: decisionos
+  namespace: decisionos
+  labels:
+    app.kubernetes.io/name: decisionos
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: decisionos
+      app.kubernetes.io/component: server

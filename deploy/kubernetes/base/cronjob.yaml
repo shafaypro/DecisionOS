@@ -1,0 +1,122 @@
+# Scheduled tasks for review reminders and weekly digest.
+# These call the app's cron API endpoints with the CRON_SECRET bearer token.
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: review-reminders
+  namespace: decisionos
+  labels:
+    app.kubernetes.io/name: decisionos
+    app.kubernetes.io/component: cron
+spec:
+  schedule: "0 8 * * *"   # Daily at 8:00 AM UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: curl
+              image: curlimages/curl:8.7.1
+              command:
+                - sh
+                - -c
+                - |
+                  curl -sf -X POST \
+                    -H "Authorization: Bearer $(CRON_SECRET)" \
+                    http://decisionos.decisionos.svc.cluster.local/api/cron/review-reminders
+              envFrom:
+                - secretRef:
+                    name: decisionos-secrets
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: weekly-digest
+  namespace: decisionos
+  labels:
+    app.kubernetes.io/name: decisionos
+    app.kubernetes.io/component: cron
+spec:
+  schedule: "0 9 * * 1"   # Monday at 9:00 AM UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: curl
+              image: curlimages/curl:8.7.1
+              command:
+                - sh
+                - -c
+                - |
+                  curl -sf -X POST \
+                    -H "Authorization: Bearer $(CRON_SECRET)" \
+                    http://decisionos.decisionos.svc.cluster.local/api/cron/weekly-digest
+              envFrom:
+                - secretRef:
+                    name: decisionos-secrets
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: audit-retention
+  namespace: decisionos
+  labels:
+    app.kubernetes.io/name: decisionos
+    app.kubernetes.io/component: cron
+spec:
+  schedule: "37 3 * * *"   # Daily at 3:37 AM UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: curl
+              image: curlimages/curl:8.7.1
+              command:
+                - sh
+                - -c
+                - |
+                  curl -sf -X POST \
+                    -H "Authorization: Bearer $(CRON_SECRET)" \
+                    http://decisionos.decisionos.svc.cluster.local/api/cron/audit-retention
+              envFrom:
+                - secretRef:
+                    name: decisionos-secrets
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi

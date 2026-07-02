@@ -1,0 +1,44 @@
+# Copy to terraform.tfvars and adjust. All values shown are the defaults.
+
+aws_region   = "us-east-1"
+project_name = "decisionos"
+environment  = "prod"
+
+# Fargate sizing (lean starter)
+desired_count = 1
+task_cpu      = 512
+task_memory   = 1024
+
+# Set once you have a custom domain + ACM cert (otherwise the ALB DNS over HTTP is used).
+# app_url = "https://decisions.yourcompany.com"
+
+# Database (RDS Postgres)
+db_instance_class    = "db.t4g.micro"
+db_allocated_storage = 20
+
+# Cache (ElastiCache Redis)
+redis_node_type = "cache.t4g.micro"
+
+# Optional: email. Leave the block out entirely to disable email.
+# smtp_config = {
+#   host = "smtp.sendgrid.net"
+#   port = "587"
+#   user = "apikey"
+#   pass = "SG.xxxx"          # written to Secrets Manager
+#   from = "decisions@yourcompany.com"
+# }
+
+# Optional: pin a specific image instead of the stack's ECR :latest.
+# container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/decisionos-prod:sha-abc1234"
+
+# ── Optional: HTTPS + custom domain (you don't have a domain yet → leave off) ──
+# See optional-https.tf and docs/OPERATIONS.md. Enabling these adds an ALB :443
+# listener (+ optional Route 53 alias) and flips port 80 to redirect to 443.
+# acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/abc-123"
+# domain_name         = "decisions.yourcompany.com"
+# route53_zone_id     = "Z0123456789ABCDEFGHIJ"
+
+# ── Optional: scheduled cron jobs (needs HTTPS above) ─────────────────────────
+# See optional-scheduled-jobs.tf. Creates EventBridge schedules that hit the
+# /api/cron/* routes. Requires acm_certificate_arn to be set first.
+# enable_scheduled_jobs = true

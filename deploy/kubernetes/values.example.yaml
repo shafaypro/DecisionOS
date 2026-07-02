@@ -1,0 +1,45 @@
+# Reference values for DecisionOS Kubernetes deployment.
+# This file is NOT consumed by Kustomize - it's a human-readable reference
+# for the values you need to set in the actual manifests.
+#
+# For production, edit the Kustomize overlay in overlays/production/.
+
+# ── Container image ─────────────────────────────────────────────────
+image:
+  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/decisionos
+  tag: latest
+
+# ── Replicas & scaling ──────────────────────────────────────────────
+replicas: 2
+hpa:
+  minReplicas: 2
+  maxReplicas: 10
+  targetCpuUtilization: 70
+
+# ── Ingress ─────────────────────────────────────────────────────────
+ingress:
+  host: decisions.example.com
+  tls: true
+  clusterIssuer: letsencrypt-prod
+
+# ── Resources ───────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+# ── Secrets (set in base/secret.yaml or via external-secrets-operator)
+secrets:
+  SESSION_SECRET: ""       # openssl rand -hex 32
+  DATABASE_URL: ""         # postgresql://user:pass@host:5432/decisionos
+  REDIS_URL: ""            # redis://host:6379
+  CRON_SECRET: ""          # openssl rand -hex 16
+
+# ── Optional integrations ──────────────────────────────────────────
+# Set these in the secret or configmap as needed:
+#   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+#   SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, SLACK_SIGNING_SECRET
+#   ANTHROPIC_API_KEY

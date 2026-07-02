@@ -1,0 +1,49 @@
+services:
+  # One-shot: apply DB migrations before the app starts, then exit. Runs from the
+  # dedicated `migrator` image (full Prisma toolchain) so the serving container
+  # never migrates - safe even if the app is later scaled to multiple replicas.
+  migrate:
+    build:
+      context: /opt/decisionos/app
+      dockerfile: Dockerfile
+      target: migrator
+    restart: "no"
+    env_file:
+      - /opt/decisionos/.env
+    volumes:
+      - /opt/decisionos/data:/data
+
+  decisionos:
+    build:
+      context: /opt/decisionos/app
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - /opt/decisionos/.env
+    volumes:
+      - /opt/decisionos/data:/data
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      decisionos:
+        condition: service_started
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /opt/decisionos/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /opt/decisionos/caddy_data:/data
+      - /opt/decisionos/caddy_config:/config

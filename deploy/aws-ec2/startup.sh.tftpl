@@ -1,0 +1,85 @@
+#!/bin/bash
+set -euo pipefail
+
+LOG="/var/log/decisionos-startup.log"
+exec > >(tee -a "$LOG") 2>&1
+echo "=== DecisionOS startup $(date -Iseconds) ==="
+
+# ── Swap (t3.micro has 1 GB RAM; `next build` needs more headroom) ───
+if ! swapon --show | grep -q /swapfile; then
+  fallocate -l 3G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=3072
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
+# ── Install Docker (official apt repo - Debian has no docker-compose-plugin) ──
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq
+apt-get install -y -qq ca-certificates curl gnupg git jq
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list
+apt-get update -qq
+apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+systemctl enable docker
+systemctl start docker
+
+# ── Clone repository ─────────────────────────────────────────────────
+APP_DIR="/opt/decisionos"
+mkdir -p "$APP_DIR/data/backups"
+
+git clone --branch "${git_branch}" --depth 1 "${git_repo}" "$APP_DIR/app"
+
+# ── Write environment file ──────────────────────────────────────────
+cat > "$APP_DIR/.env" <<'ENVEOF'
+SESSION_SECRET=${session_secret}
+POSTGRES_PASSWORD=${postgres_password}
+CRON_SECRET=${cron_secret}
+APP_URL=${app_url}
+DOMAIN=${domain != "" ? domain : ":80"}
+SMTP_HOST=${smtp_host}
+SMTP_PORT=${smtp_port}
+SMTP_USER=${smtp_user}
+SMTP_PASS=${smtp_pass}
+SMTP_FROM=${smtp_from}
+ANTHROPIC_API_KEY=${anthropic_api_key}
+ENVEOF
+chmod 600 "$APP_DIR/.env"
+
+# ── Start services ──────────────────────────────────────────────────
+cd "$APP_DIR/app/deploy/docker-compose"
+ln -sf "$APP_DIR/.env" .env
+
+docker compose up -d --build
+
+# ── Wait for health ─────────────────────────────────────────────────
+echo "Waiting for app to become healthy..."
+for i in $(seq 1 30); do
+  if curl -sf http://127.0.0.1:80/api/health > /dev/null 2>&1; then
+    echo "App is healthy after $${i}0 seconds"
+    break
+  fi
+  sleep 10
+done
+
+# ── Cron jobs ────────────────────────────────────────────────────────
+CRON_AUTH="Authorization: Bearer ${cron_secret}"
+APP_BASE="${app_url}"
+
+cat > /etc/cron.d/decisionos <<CRONEOF
+# Review reminders - daily at 8 AM UTC
+0 8 * * * root curl -sS -X POST -H "$CRON_AUTH" "$APP_BASE/api/cron/review-reminders" >> /var/log/decisionos-cron.log 2>&1
+# Weekly digest - Monday at 9 AM UTC
+0 9 * * 1 root curl -sS -X POST -H "$CRON_AUTH" "$APP_BASE/api/cron/weekly-digest" >> /var/log/decisionos-cron.log 2>&1
+# Audit-log retention purge - daily at 3:37 AM UTC
+37 3 * * * root curl -sS -X POST -H "$CRON_AUTH" "$APP_BASE/api/cron/audit-retention" >> /var/log/decisionos-cron.log 2>&1
+# Database backup - daily at 3 AM UTC
+0 3 * * * root docker compose -f $APP_DIR/app/deploy/docker-compose/docker-compose.yml exec -T postgres pg_dump -U decisionos decisionos | gzip > $APP_DIR/data/backups/decisionos-\$(date +\%Y\%m\%d).sql.gz 2>> /var/log/decisionos-cron.log
+# Prune old backups - keep 7 days
+30 3 * * * root find $APP_DIR/data/backups -name "*.sql.gz" -mtime +7 -delete
+CRONEOF
+
+echo "=== DecisionOS startup complete $(date -Iseconds) ==="

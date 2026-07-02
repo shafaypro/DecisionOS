@@ -1,0 +1,121 @@
+name: Release images
+
+# Build the production images OFF the deploy box (here, in CI) and push them to
+# the GitHub Container Registry. The EC2 instance then only ever `docker compose
+# pull`s; it never builds, so a 1 GB t3.micro is fine and there is no resize
+# dance. See docs/deployment/AWS_EC2_DEPLOYMENT_RUNBOOK.md → "Off-box image builds".
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch: {}
+
+concurrency:
+  group: release-images-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  # Lowercase owner (GHCR requires lowercase); shafaypro is already lowercase.
+  APP_IMAGE: ghcr.io/${{ github.repository_owner }}/decisionos-app
+  MIGRATE_IMAGE: ghcr.io/${{ github.repository_owner }}/decisionos-migrate
+
+jobs:
+  build-push:
+    name: Build & push images to GHCR
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Slim serving image (production deps only). Tagged latest + the commit sha
+      # so a deploy can be pinned/rolled back to an exact build.
+      - name: Build & push serving image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runner
+          push: true
+          tags: |
+            ${{ env.APP_IMAGE }}:latest
+            ${{ env.APP_IMAGE }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # One-shot migrator image (full toolchain) that runs `prisma migrate deploy`
+      # once per deploy before the app starts.
+      - name: Build & push migrator image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: migrator
+          push: true
+          tags: |
+            ${{ env.MIGRATE_IMAGE }}:latest
+            ${{ env.MIGRATE_IMAGE }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "### Images pushed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ env.APP_IMAGE }}:latest\` (and \`:sha-${{ github.sha }}\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ env.MIGRATE_IMAGE }}:latest\` (and \`:sha-${{ github.sha }}\`)" >> "$GITHUB_STEP_SUMMARY"
+
+  # Roll the running app on the existing EC2 box: SSH in, log Docker into GHCR with
+  # this run's short-lived GITHUB_TOKEN (no durable registry token is stored
+  # anywhere), pull the freshly built tag, and restart. The image stays private;
+  # the box never builds, it only pulls.
+  deploy:
+    name: Deploy to EC2
+    needs: build-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 10
+    steps:
+      - name: Pull new image on the EC2 and roll the app
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          LOGIN_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          TAG: sha-${{ github.sha }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: admin
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: LOGIN_USER,GHCR_TOKEN,OWNER,TAG
+          script_stop: true
+          script: |
+            echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$LOGIN_USER" --password-stdin
+            # Pull GHCR images sequentially. `docker compose pull` fetches them in
+            # parallel, which races GHCR's token exchange and intermittently 401s;
+            # one-at-a-time docker pull is reliable. Then `up` uses the local images.
+            sudo docker pull "ghcr.io/$OWNER/decisionos-app:$TAG"
+            sudo docker pull "ghcr.io/$OWNER/decisionos-migrate:$TAG"
+            cd /opt/decisionos/app/deploy/docker-compose
+            export IMAGE_TAG="$TAG"
+            sudo -E docker compose -f docker-compose.ghcr.yml up -d
+            # Drop now-unused old image tags so the 20 GB disk stays bounded
+            # (prune -f keeps tagged images; -a removes ones no container uses).
+            sudo docker image prune -af
+            sudo docker logout ghcr.io

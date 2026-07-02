@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+exec > >(tee -a /var/log/decisionos-startup.log) 2>&1
+
+decode_var() {
+  if [ -n "$1" ]; then
+    printf '%s' "$1" | base64 -d
+  fi
+}
+
+REPO_URL="$(decode_var '${repo_url_b64}')"
+REPO_REF="$(decode_var '${repo_ref_b64}')"
+DOMAIN_NAME="$(decode_var '${domain_name_b64}')"
+NEXT_PUBLIC_APP_URL_VALUE="$(decode_var '${next_public_app_url_b64}')"
+SESSION_SECRET_INPUT="$(decode_var '${session_secret_b64}')"
+CRON_SECRET_INPUT="$(decode_var '${cron_secret_b64}')"
+SMTP_HOST_VALUE="$(decode_var '${smtp_host_b64}')"
+SMTP_PORT_VALUE="$(decode_var '${smtp_port_b64}')"
+SMTP_USER_VALUE="$(decode_var '${smtp_user_b64}')"
+SMTP_PASS_VALUE="$(decode_var '${smtp_pass_b64}')"
+SMTP_FROM_VALUE="$(decode_var '${smtp_from_b64}')"
+ANTHROPIC_API_KEY_VALUE="$(decode_var '${anthropic_api_key_b64}')"
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y ca-certificates curl git gnupg openssl sqlite3 ufw unattended-upgrades
+
+if [ ! -f /swapfile ]; then
+  fallocate -l 2G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+elif ! swapon --show | grep -q '^/swapfile'; then
+  swapon /swapfile
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+  chmod a+r /etc/apt/keyrings/docker.asc
+  . /etc/os-release
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $VERSION_CODENAME stable" > /etc/apt/sources.list.d/docker.list
+  apt-get update
+  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+fi
+
+systemctl enable --now docker
+
+install -d -m 0755 /opt/decisionos
+install -d -m 0750 /opt/decisionos/data
+install -d -m 0750 /opt/decisionos/data/backups
+install -d -m 0755 /opt/decisionos/caddy_data /opt/decisionos/caddy_config
+chown -R 1001:1001 /opt/decisionos/data
+
+if [ ! -d /opt/decisionos/app/.git ]; then
+  rm -rf /opt/decisionos/app
+  git clone --depth=1 --branch "$REPO_REF" "$REPO_URL" /opt/decisionos/app
+else
+  git -C /opt/decisionos/app fetch origin "$REPO_REF" --depth=1
+  git -C /opt/decisionos/app checkout -B deploy FETCH_HEAD
+fi
+
+ENV_FILE=/opt/decisionos/.env
+if [ -f "$ENV_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$ENV_FILE" || true
+  set +a
+fi
+
+SESSION_SECRET_VALUE="$SESSION_SECRET_INPUT"
+if [ -z "$SESSION_SECRET_VALUE" ] && [ -n "$${SESSION_SECRET:-}" ]; then
+  SESSION_SECRET_VALUE="$SESSION_SECRET"
+fi
+if [ -z "$SESSION_SECRET_VALUE" ]; then
+  SESSION_SECRET_VALUE="$(openssl rand -base64 48)"
+fi
+
+CRON_SECRET_VALUE="$CRON_SECRET_INPUT"
+if [ -z "$CRON_SECRET_VALUE" ] && [ -n "$${CRON_SECRET:-}" ]; then
+  CRON_SECRET_VALUE="$CRON_SECRET"
+fi
+if [ -z "$CRON_SECRET_VALUE" ]; then
+  CRON_SECRET_VALUE="$(openssl rand -base64 48)"
+fi
+
+cat > "$ENV_FILE" <<EOF
+DATABASE_URL=file:/data/decisionos.db
+SESSION_SECRET=$SESSION_SECRET_VALUE
+CRON_SECRET=$CRON_SECRET_VALUE
+NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL_VALUE
+SMTP_HOST=$SMTP_HOST_VALUE
+SMTP_PORT=$SMTP_PORT_VALUE
+SMTP_USER=$SMTP_USER_VALUE
+SMTP_PASS=$SMTP_PASS_VALUE
+SMTP_FROM=$SMTP_FROM_VALUE
+ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY_VALUE
+EOF
+chmod 600 "$ENV_FILE"
+
+cp /opt/decisionos/app/deploy/gcp/free-tier/docker-compose.yml /opt/decisionos/docker-compose.yml
+
+if [ -n "$DOMAIN_NAME" ]; then
+  cat > /opt/decisionos/Caddyfile <<EOF
+$DOMAIN_NAME {
+  encode zstd gzip
+  reverse_proxy decisionos:3000
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "strict-origin-when-cross-origin"
+  }
+}
+EOF
+else
+  cat > /opt/decisionos/Caddyfile <<'EOF'
+:80 {
+  encode zstd gzip
+  reverse_proxy decisionos:3000
+  header {
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "strict-origin-when-cross-origin"
+  }
+}
+EOF
+fi
+
+ufw allow 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw --force enable
+
+cat > /etc/cron.d/decisionos <<EOF
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 7 * * * root curl -fsS -H "Authorization: Bearer $CRON_SECRET_VALUE" http://127.0.0.1/api/cron/review-reminders >/dev/null 2>&1
+31 7 * * 1 root curl -fsS -H "Authorization: Bearer $CRON_SECRET_VALUE" http://127.0.0.1/api/cron/weekly-digest >/dev/null 2>&1
+19 3 * * * root curl -fsS -H "Authorization: Bearer $CRON_SECRET_VALUE" http://127.0.0.1/api/cron/audit-retention >/dev/null 2>&1
+43 2 * * * root sqlite3 /opt/decisionos/data/decisionos.db ".backup '/opt/decisionos/data/backups/decisionos-\$(date +\%F).db'" && find /opt/decisionos/data/backups -name 'decisionos-*.db' -mtime +14 -delete
+EOF
+chmod 644 /etc/cron.d/decisionos
+systemctl restart cron
+
+cd /opt/decisionos
+docker compose up -d --build
+docker image prune -f

@@ -1,0 +1,44 @@
+# Run database migrations before deploying new app versions.
+#
+# Usage:
+#   kubectl apply -f migration-job.yaml
+#   kubectl wait --for=condition=complete job/decisionos-migrate -n decisionos --timeout=120s
+#   kubectl apply -f deployment.yaml   # then roll out the new version
+#
+# For CI/CD: create the job, wait for completion, then update the deployment image tag.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: decisionos-migrate
+  namespace: decisionos
+  labels:
+    app.kubernetes.io/name: decisionos
+    app.kubernetes.io/component: migration
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: decisionos
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      containers:
+        - name: migrate
+          image: decisionos-migrator:latest  # Replace with your registry
+          imagePullPolicy: Always
+          envFrom:
+            - secretRef:
+                name: decisionos-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
