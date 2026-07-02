@@ -1,5 +1,7 @@
 # DecisionOS
 
+<img src="assets/logo.svg" alt="DecisionOS logo" width="88"/>
+
 **The open-source, self-hostable system of record for team decisions.**
 
 Capture what was decided, why, who decided it, the alternatives considered, and

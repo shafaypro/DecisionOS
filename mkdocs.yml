@@ -8,6 +8,8 @@ copyright: MIT-licensed. Free and open source.
 
 theme:
   name: material
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
   icon:
     repo: fontawesome/brands/github
   palette:

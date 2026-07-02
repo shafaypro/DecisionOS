@@ -1,0 +1,8 @@
+<svg width="168" height="168" viewBox="0 0 168 168" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DecisionOS">
+  <!-- DecisionOS brand mark: two rounded pillars, blue and red.
+       Canonical source of the mark rendered by src/components/ui/logo.tsx. -->
+  <path d="M80 128C80 150.091 62.0914 168 40 168C17.9086 168 6.44344e-08 150.091 0 128V88H80V128Z" fill="#0064FF"/>
+  <path d="M40 0C62.0914 0 80 17.9086 80 40V80H0V40C0 17.9086 17.9086 0 40 0Z" fill="#0064FF"/>
+  <path d="M168 128C168 150.091 150.091 168 128 168C105.909 168 88 150.091 88 128V88H168V128Z" fill="#FE0000"/>
+  <path d="M128 0C150.091 0 168 17.9086 168 40V80H88V40C88 17.9086 105.909 0 128 0Z" fill="#FE0000"/>
+</svg>

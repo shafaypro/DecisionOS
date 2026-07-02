@@ -1,8 +1,8 @@
 <div align="center">
 
-<h1>
-  <img src="https://img.shields.io/badge/Decision-OS-6366f1?style=flat-square&labelColor=0f172a&color=6366f1" height="32" alt="DecisionOS"/>
-</h1>
+<img src="public/logo.svg" alt="DecisionOS logo - two rounded pillars, blue and red" width="96"/>
+
+<h1>DecisionOS</h1>
 
 **The structured system of record for decisions that matter.**  
 Capture what was decided, why, who decided it, alternatives considered, assumptions & risks - and whether it actually worked.
@@ -193,7 +193,14 @@ DecisionOS/
 │   │   └── utils.ts                # CATEGORIES, STATUSES, IMPACT_LEVELS, OUTCOME_STATUSES,
 │   │                               #   LINK_TYPES, cn(), formatDate(), formatRelativeDate(), slugify()
 │   └── proxy.ts                    # Route protection (Next.js 16 middleware replacement)
-├── .env                            # DATABASE_URL + SESSION_SECRET
+├── tests/                          # smoke/ (zero-dep runner) + integration/ (Vitest)
+├── docs/                           # Setup, architecture, deployment, compliance (published via MkDocs)
+├── deploy/                         # Terraform + Compose for EC2, GCP, ECS, Kubernetes
+├── scripts/                        # dev-db.mjs - zero-config local SQLite bootstrap
+├── .github/                        # CI workflows, issue/PR templates, Dependabot, CODEOWNERS
+├── Dockerfile                      # Multi-stage build: slim runner + one-shot migrator
+├── docker-compose.yml              # Local dev infra (Postgres + Redis); prod stack lives in deploy/
+├── .env.example                    # Environment template (copy to .env)
 └── tsconfig.json
 ```
 
