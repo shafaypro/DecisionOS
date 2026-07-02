@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1
 
 # ── Full dependency set (incl. dev) - used only to build and to migrate ──────────
-FROM node:24-bookworm-slim AS deps
+FROM node:26-bookworm-slim AS deps
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
 RUN npm ci
 
 # ── Production-only dependencies - what the serving image actually needs ─────────
-FROM node:24-bookworm-slim AS prod-deps
+FROM node:26-bookworm-slim AS prod-deps
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
@@ -40,7 +40,7 @@ RUN SESSION_SECRET=build-time-placeholder-not-used-at-runtime npm run build
 # Keeps the full toolchain (Prisma CLI + TS config loader) so `migrate deploy`
 # works exactly as it does today. Run this ONCE per deploy (CI step / ECS task /
 # compose one-shot) - never per serving replica, to avoid concurrent migrations.
-FROM node:24-bookworm-slim AS migrator
+FROM node:26-bookworm-slim AS migrator
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -51,7 +51,7 @@ COPY prisma.config.ts package.json package-lock.json ./
 CMD ["npm", "run", "db:migrate:deploy"]
 
 # ── Runner - slim serving image (production deps only, never migrates) ────────────
-FROM node:24-bookworm-slim AS runner
+FROM node:26-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
