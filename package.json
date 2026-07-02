@@ -62,19 +62,19 @@
     "@storybook/addon-a11y": "^10.4.6",
     "@storybook/nextjs": "^10.4.4",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^26.1.0",
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
+    "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.10",
     "playwright-core": "^1.61.1",
     "storybook": "^10.4.4",
     "tailwindcss": "^4",
     "tsx": "^4.22.5",
-    "typescript": "^5",
-    "vitest": "^3.2.6"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   },
   "overrides": {
     "esbuild": "^0.28.1",
