@@ -16,6 +16,7 @@ Capture what was decided, why, who decided it, alternatives considered, assumpti
 [![CI](https://img.shields.io/github/actions/workflow/status/shafaypro/DecisionOS/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/shafaypro/DecisionOS/actions/workflows/ci.yml)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-6366f1?style=flat-square)](CONTRIBUTING.md)
 [![Self-hosted](https://img.shields.io/badge/self--hosted-ready-22c55e?style=flat-square)](docs/deployment/README.md)
+[![Docs](https://img.shields.io/badge/docs-decisionos-526cfe?style=flat-square)](https://shafaypro.github.io/DecisionOS/)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-8b5cf6?style=flat-square)](CODE_OF_CONDUCT.md)
 [![GitHub stars](https://img.shields.io/github/stars/shafaypro/DecisionOS?style=flat-square)](https://github.com/shafaypro/DecisionOS/stargazers)
 [![GitHub issues](https://img.shields.io/github/issues/shafaypro/DecisionOS?style=flat-square)](https://github.com/shafaypro/DecisionOS/issues)
@@ -546,7 +547,7 @@ This project targets **Next.js 16.2.x** which ships Turbopack as the default bun
 
 ## Documentation
 
-The full documentation map lives in **[`docs/`](docs/README.md)**. Highlights:
+Browse the full docs site at **[shafaypro.github.io/DecisionOS](https://shafaypro.github.io/DecisionOS/)** (built from [`docs/`](docs/README.md) with MkDocs). Highlights:
 
 | Area | Start here |
 |---|---|
