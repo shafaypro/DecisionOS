@@ -62,7 +62,7 @@
     "@storybook/addon-a11y": "^10.4.4",
     "@storybook/nextjs": "^10.4.4",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^26",
     "@types/nodemailer": "^8.0.0",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
