@@ -328,22 +328,18 @@ the image off-box and have the instance just pull it, covered in §7.
 ## 7. Off-box image builds, the recommended path
 
 > **CI/CD runs on GitHub Actions.** [`release-images.yml`](../../.github/workflows/release-images.yml)
-> builds the images and pushes them to **GHCR** on every push to `main`; the box
-> only pulls. This section documents that GHCR pull-based approach.
+> builds the images and pushes them to **GHCR** when you publish a release (or push
+> a `v*` tag); the box only pulls. This section documents that GHCR pull-based approach.
 
-### Required GitHub Actions secrets
+### What CI needs, and what it does not
 
-The build → GHCR step needs nothing extra (it uses the built-in `GITHUB_TOKEN`).
-The deploy step SSHes into your box, so add these under **Settings → Secrets and
-variables → Actions → New repository secret**:
-
-| Secret | What it is |
-|---|---|
-| `EC2_HOST` | Public IP or hostname of the target server (e.g. `203.0.113.10`). |
-| `EC2_SSH_KEY` | Private SSH key (PEM contents) for the `admin` user on that box. Keep the matching public key in the server's `~/.ssh/authorized_keys`. |
+Publishing to GHCR needs **no extra secrets** - the workflow uses the built-in
+`GITHUB_TOKEN`. It deliberately does **not** SSH into or otherwise touch your
+server: rolling the new images is a manual pull on the box (below), so there is no
+private host address or SSH key stored in the repo. Deploying is decoupled from
+publishing, which keeps this a public, fork-friendly workflow.
 
 Notes:
-- These live only in GitHub's encrypted secret store - never commit them.
 - Repo → **Settings → Actions → General → Workflow permissions** must allow
   **Read and write** so the workflow can push to GHCR.
 - Make the GHCR packages public (or grant your host a read token) if you want the
@@ -357,18 +353,19 @@ them. A free-tier t3.micro can then serve indefinitely, because it never builds.
 ### How it works
 
 - **`.github/workflows/release-images.yml`** builds the `runner` and `migrator`
-  Dockerfile targets on every push to `main` (and on demand via *Run workflow*),
-  then pushes them to GHCR:
-  - `ghcr.io/<owner>/decisionos-app:latest` (plus `:sha-<commit>`)
-  - `ghcr.io/<owner>/decisionos-migrate:latest` (plus `:sha-<commit>`)
+  Dockerfile targets when a release is published or a `v*` tag is pushed (and on
+  demand via *Run workflow*), then pushes them to GHCR:
+  - `ghcr.io/<owner>/decisionos-app:<version>` (plus `:latest` and `:sha-<commit>`)
+  - `ghcr.io/<owner>/decisionos-migrate:<version>` (plus `:latest` and `:sha-<commit>`)
 - **`deploy/docker-compose/docker-compose.ghcr.yml`** is a pull-only compose:
   identical services, but `app` and `migrate` use `image:` instead of `build:`.
 
 ### One-time setup
 
 1. **Let CI publish.** The workflow uses the built-in `GITHUB_TOKEN` with
-   `packages: write`, so there is no secret to add. Merge it to `main` (or run
-   *Actions → Release images → Run workflow*) once to create the two GHCR packages.
+   `packages: write`, so there is no secret to add. Publish a release / push a
+   `v*` tag (or run *Actions → Publish images → Run workflow*) once to create the
+   two GHCR packages.
 2. **Choose package visibility** (the repo can stay private either way):
    - **Public packages** (simplest): GitHub → profile → Packages →
      `decisionos-app` / `decisionos-migrate` → Package settings → *Change
@@ -389,7 +386,7 @@ them. A free-tier t3.micro can then serve indefinitely, because it never builds.
 ### Day-to-day deploys: no build, no resize
 
 ```bash
-# 1. merge to main, and CI builds + pushes images off-box (a few minutes)
+# 1. publish a release / push a v* tag, and CI builds + pushes images off-box (a few minutes)
 # 2. on the instance:
 cd /opt/decisionos/app/deploy/docker-compose
 sudo docker compose -f docker-compose.ghcr.yml pull      # ~10s

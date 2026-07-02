@@ -23,7 +23,6 @@ WORKDIR /app
 # the libsql adapter loads against a postgres client and the build fails. No DB
 # connection is made at build time (the pg pool is lazy); the value is a dummy.
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
-ENV SESSION_SECRET=build-time-secret-not-used-at-runtime
 # Raise V8 heap cap so `next build` fits on small instances (t3.micro + swap);
 # V8's heap limit is independent of OS memory/swap, so it must be lifted explicitly.
 ENV NODE_OPTIONS=--max-old-space-size=3072
@@ -32,7 +31,10 @@ COPY prisma.config.ts next.config.ts postcss.config.mjs eslint.config.mjs tsconf
 COPY public ./public
 COPY src ./src
 RUN npm run prisma:generate
-RUN npm run build
+# SESSION_SECRET is required for the app module to load while `next build` collects
+# page data, but no session is ever issued at build time. Pass it inline to this one
+# RUN so it is not baked into an image layer (and does not trip the ENV-secret lint).
+RUN SESSION_SECRET=build-time-placeholder-not-used-at-runtime npm run build
 
 # ── Migrator - one-shot image that applies migrations, then exits ────────────────
 # Keeps the full toolchain (Prisma CLI + TS config loader) so `migrate deploy`

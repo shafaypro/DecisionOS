@@ -28,7 +28,7 @@ The map of DecisionOS docs. Start here.
 | [deployment/AWS_EC2_DEPLOYMENT_RUNBOOK.md](deployment/AWS_EC2_DEPLOYMENT_RUNBOOK.md) | Self-host on a single EC2, step by step |
 | [deployment/GCP.md](deployment/GCP.md) | Alternative: Google Cloud free-tier walkthrough |
 
-CI/CD runs on **GitHub Actions**: [`ci.yml`](../.github/workflows/ci.yml) gates every PR (type-check, lint, smoke + integration tests, build) and [`release-images.yml`](../.github/workflows/release-images.yml) publishes container images to GHCR on push to `main`.
+CI/CD runs on **GitHub Actions**: [`ci.yml`](../.github/workflows/ci.yml) gates every PR (type-check, lint, smoke + integration tests, build) and [`release-images.yml`](../.github/workflows/release-images.yml) publishes container images to GHCR when a release is published.
 
 ## Features and operations
 

@@ -1,20 +1,21 @@
-name: Release images
+name: Publish images
 
-# Build the production images OFF the deploy box (here, in CI) and push them to
-# the GitHub Container Registry. The EC2 instance then only ever `docker compose
-# pull`s; it never builds, so a 1 GB t3.micro is fine and there is no resize
-# dance. See docs/deployment/AWS_EC2_DEPLOYMENT_RUNBOOK.md → "Off-box image builds".
+# Build the production container images and publish them to the GitHub Container
+# Registry (GHCR) so self-hosters can `docker pull` a ready-made build instead of
+# building locally. Runs when a release is published or a version tag is pushed,
+# and can be triggered by hand. It does not deploy anywhere: where and how to run
+# the images is up to each operator (see docs/deployment/).
 
 on:
   push:
-    branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
+    tags:
+      - "v*"
+  release:
+    types: [published]
   workflow_dispatch: {}
 
 concurrency:
-  group: release-images-${{ github.ref }}
+  group: publish-images-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -23,7 +24,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  # Lowercase owner (GHCR requires lowercase); shafaypro is already lowercase.
+  # GHCR requires a lowercase namespace; github.repository_owner is used as-is.
   APP_IMAGE: ghcr.io/${{ github.repository_owner }}/decisionos-app
   MIGRATE_IMAGE: ghcr.io/${{ github.repository_owner }}/decisionos-migrate
 
@@ -47,75 +48,59 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Slim serving image (production deps only). Tagged latest + the commit sha
-      # so a deploy can be pinned/rolled back to an exact build.
+      # Derive image tags from the git ref. A version tag/release (v1.2.3) yields
+      # `:1.2.3` and `:latest`; a manual run yields `:latest` and `:sha-<sha>` so
+      # every build is still addressable.
+      - name: Compute image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.APP_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+            type=sha,prefix=sha-
+
+      # Slim serving image (production deps only).
       - name: Build & push serving image
         uses: docker/build-push-action@v6
         with:
           context: .
           target: runner
           push: true
-          tags: |
-            ${{ env.APP_IMAGE }}:latest
-            ${{ env.APP_IMAGE }}:sha-${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       # One-shot migrator image (full toolchain) that runs `prisma migrate deploy`
       # once per deploy before the app starts.
+      - name: Compute migrator tags
+        id: meta_migrate
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.MIGRATE_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+            type=sha,prefix=sha-
+
       - name: Build & push migrator image
         uses: docker/build-push-action@v6
         with:
           context: .
           target: migrator
           push: true
-          tags: |
-            ${{ env.MIGRATE_IMAGE }}:latest
-            ${{ env.MIGRATE_IMAGE }}:sha-${{ github.sha }}
+          tags: ${{ steps.meta_migrate.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Summary
         run: |
-          echo "### Images pushed" >> "$GITHUB_STEP_SUMMARY"
-          echo "- \`${{ env.APP_IMAGE }}:latest\` (and \`:sha-${{ github.sha }}\`)" >> "$GITHUB_STEP_SUMMARY"
-          echo "- \`${{ env.MIGRATE_IMAGE }}:latest\` (and \`:sha-${{ github.sha }}\`)" >> "$GITHUB_STEP_SUMMARY"
-
-  # Roll the running app on the existing EC2 box: SSH in, log Docker into GHCR with
-  # this run's short-lived GITHUB_TOKEN (no durable registry token is stored
-  # anywhere), pull the freshly built tag, and restart. The image stays private;
-  # the box never builds, it only pulls.
-  deploy:
-    name: Deploy to EC2
-    needs: build-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    timeout-minutes: 10
-    steps:
-      - name: Pull new image on the EC2 and roll the app
-        uses: appleboy/ssh-action@v1.2.0
-        env:
-          LOGIN_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OWNER: ${{ github.repository_owner }}
-          TAG: sha-${{ github.sha }}
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: admin
-          key: ${{ secrets.EC2_SSH_KEY }}
-          envs: LOGIN_USER,GHCR_TOKEN,OWNER,TAG
-          script_stop: true
-          script: |
-            echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$LOGIN_USER" --password-stdin
-            # Pull GHCR images sequentially. `docker compose pull` fetches them in
-            # parallel, which races GHCR's token exchange and intermittently 401s;
-            # one-at-a-time docker pull is reliable. Then `up` uses the local images.
-            sudo docker pull "ghcr.io/$OWNER/decisionos-app:$TAG"
-            sudo docker pull "ghcr.io/$OWNER/decisionos-migrate:$TAG"
-            cd /opt/decisionos/app/deploy/docker-compose
-            export IMAGE_TAG="$TAG"
-            sudo -E docker compose -f docker-compose.ghcr.yml up -d
-            # Drop now-unused old image tags so the 20 GB disk stays bounded
-            # (prune -f keeps tagged images; -a removes ones no container uses).
-            sudo docker image prune -af
-            sudo docker logout ghcr.io
+          echo "### Images published to GHCR" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ env.APP_IMAGE }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ env.MIGRATE_IMAGE }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tags: \`${{ steps.meta.outputs.tags }}\`" >> "$GITHUB_STEP_SUMMARY"

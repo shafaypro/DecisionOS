@@ -401,7 +401,7 @@ SESSION_SECRET="change-this-to-a-long-random-secret-in-production"
 
 ### Deployment
 
-DecisionOS ships with Terraform/Compose for several targets (single EC2, GCP free-tier, AWS ECS, Kubernetes, or plain Docker Compose). **CI/CD runs on GitHub Actions**: PRs are gated by `ci.yml` (type-check, lint, smoke + integration tests, build), and `release-images.yml` publishes container images to **GHCR** on push to `main` - your host just pulls them.
+DecisionOS ships with Terraform/Compose for several targets (single EC2, GCP free-tier, AWS ECS, Kubernetes, or plain Docker Compose). **CI/CD runs on GitHub Actions**: PRs are gated by `ci.yml` (type-check, lint, smoke + integration tests, build), and `release-images.yml` publishes container images to **GHCR** when you publish a release - your host just pulls them.
 
 - **[Architecture diagram + guide](docs/deployment/ARCHITECTURE.md)** - the whole system in one view.
 - **[Deployment guide](docs/deployment/README.md)** - compare the targets and pick one.

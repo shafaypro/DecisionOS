@@ -39,9 +39,9 @@ Every push and pull request runs **GitHub Actions**:
 
 1. **`ci.yml`** runs the quality gates - `tsc --noEmit`, lint, smoke + integration
    tests, and a production build. A failing gate blocks the merge.
-2. On push to `main`, **`release-images.yml`** builds the two Docker images (the
-   slim `runner` and the one-shot `migrator`) and pushes them to **GHCR**
-   (GitHub Container Registry).
+2. When a release is published (or a `v*` tag is pushed), **`release-images.yml`**
+   builds the two Docker images (the slim `runner` and the one-shot `migrator`)
+   and pushes them to **GHCR** (GitHub Container Registry).
 3. Your host **pulls the images** and rolls the stack with `docker compose`. The
    `migrate` one-shot runs `prisma migrate deploy` before the app starts, so the
    schema is always current. Nothing builds on the host.

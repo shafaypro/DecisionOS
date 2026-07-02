@@ -2,7 +2,7 @@
 
 Choose a deployment target based on your team size, budget, and operational preference. This page compares the targets; the detailed walkthroughs below cover the live setup end to end.
 
-> **CI/CD.** DecisionOS builds and tests on **GitHub Actions** ([`ci.yml`](../../.github/workflows/ci.yml) gates every PR; [`release-images.yml`](../../.github/workflows/release-images.yml) publishes images to **GHCR** on push to `main`). Deploy targets then pull those images. **Docker Compose** and **AWS EC2** are the best-trodden self-host paths; **GCP Free-Tier**, **AWS ECS Fargate**, and **Kubernetes** are community-supported references - complete as written, but verify before relying on them in production.
+> **CI/CD.** DecisionOS builds and tests on **GitHub Actions** ([`ci.yml`](../../.github/workflows/ci.yml) gates every PR; [`release-images.yml`](../../.github/workflows/release-images.yml) publishes images to **GHCR** when a release is published). Deploy targets then pull those images. **Docker Compose** and **AWS EC2** are the best-trodden self-host paths; **GCP Free-Tier**, **AWS ECS Fargate**, and **Kubernetes** are community-supported references - complete as written, but verify before relying on them in production.
 
 ## Guides in this folder
 
