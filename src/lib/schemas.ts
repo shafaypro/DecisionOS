@@ -46,7 +46,7 @@ export const DecisionWriteSchema = z.object({
 
   ownerUserId: z.string().nullable().optional(),
   accountableUserId: z.string().nullable().optional(),
-  consultedIds: z.array(z.string()).max(100).optional(),
+  consultedIds: z.array(z.string()).max(100).nullable().optional(),
 
   problemStatement: longText(),
   chosenOption: longText(),

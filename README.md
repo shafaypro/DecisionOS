@@ -33,15 +33,23 @@ Most teams make hundreds of decisions per quarter - and forget 90% of them withi
 
 ---
 
+## See it in action
+
+![DecisionOS demo tour: sign in, browse and search decisions, open a decision record, explore the decision graph, analytics, and the audit console](docs/assets/demo.gif)
+
+*25-second tour: sign in → decisions list and search → decision record → decision graph → analytics → security audit console.*
+
+---
+
 ## Screenshots
 
-> Captured from the latest build - refreshed design system (electric-blue brand, redesigned sidebar, and unified design tokens).
+> Captured live from a running instance with the seeded demo workspace (`admin@acme.demo`).
 
 ### Sign in
 ![Sign in](docs/screenshots/01-landing.png)
 
-### Health - workspace health at a glance
-![Workspace Health](docs/screenshots/02-dashboard.png)
+### Analytics - workspace health at a glance
+![Workspace health and analytics](docs/screenshots/02-dashboard.png)
 
 ### Decisions - filters, workspace memory, and focus tabs
 ![Decisions List](docs/screenshots/03-decisions-list.png)

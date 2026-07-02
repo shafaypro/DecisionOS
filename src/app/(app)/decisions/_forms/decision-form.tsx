@@ -248,7 +248,7 @@ export function DecisionForm({
       status: saveAsProposed ? "proposed" : statusEl?.value ?? "approved",
       ownerUserId: ownerEl?.value || null,
       accountableUserId: accountableEl?.value || null,
-      consultedIds: consultedIds.length > 0 ? consultedIds : null,
+      consultedIds,
       decisionDate: dateEl?.value || null,
       reviewDate: reviewDateEl?.value || null,
       problemStatement: problemStatement || null,
@@ -271,7 +271,11 @@ export function DecisionForm({
       });
       const json = await res.json();
       if (json.error) {
-        setError(json.error);
+        // Surface the first field-level detail so a validation failure says
+        // which field is wrong instead of just "Validation failed".
+        const fieldErrors = json.details?.fieldErrors as Record<string, string[]> | undefined;
+        const first = fieldErrors && Object.entries(fieldErrors).find(([, v]) => v?.length);
+        setError(first ? `${json.error}: ${first[0]} - ${first[1][0]}` : json.error);
         return;
       }
 
