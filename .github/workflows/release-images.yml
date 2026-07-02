@@ -53,7 +53,7 @@ jobs:
       # every build is still addressable.
       - name: Compute image tags
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             ${{ env.APP_IMAGE }}
@@ -77,7 +77,7 @@ jobs:
       # once per deploy before the app starts.
       - name: Compute migrator tags
         id: meta_migrate
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             ${{ env.MIGRATE_IMAGE }}
