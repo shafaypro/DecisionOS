@@ -9,19 +9,22 @@ import { isAuthorizedCron } from "../../src/lib/env";
  * which must LOCK the endpoint rather than open it.
  */
 function withEnv(env: { CRON_SECRET?: string; NODE_ENV?: string }, fn: () => void) {
+  // Next augments process.env.NODE_ENV as a readonly union; this test needs to
+  // toggle it, so write through a mutable view of the same object.
+  const mutableEnv = process.env as Record<string, string | undefined>;
   const prevSecret = process.env.CRON_SECRET;
   const prevNodeEnv = process.env.NODE_ENV;
   try {
-    if (env.CRON_SECRET === undefined) delete process.env.CRON_SECRET;
-    else process.env.CRON_SECRET = env.CRON_SECRET;
-    if (env.NODE_ENV === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = env.NODE_ENV;
+    if (env.CRON_SECRET === undefined) delete mutableEnv.CRON_SECRET;
+    else mutableEnv.CRON_SECRET = env.CRON_SECRET;
+    if (env.NODE_ENV === undefined) delete mutableEnv.NODE_ENV;
+    else mutableEnv.NODE_ENV = env.NODE_ENV;
     fn();
   } finally {
-    if (prevSecret === undefined) delete process.env.CRON_SECRET;
-    else process.env.CRON_SECRET = prevSecret;
-    if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = prevNodeEnv;
+    if (prevSecret === undefined) delete mutableEnv.CRON_SECRET;
+    else mutableEnv.CRON_SECRET = prevSecret;
+    if (prevNodeEnv === undefined) delete mutableEnv.NODE_ENV;
+    else mutableEnv.NODE_ENV = prevNodeEnv;
   }
 }
 

@@ -104,7 +104,7 @@ async function main() {
   }
 }
 
-export function assert(cond: unknown, msg: string): asserts cond {
+export function assert(cond: unknown, msg = "assertion failed"): asserts cond {
   if (!cond) throw new Error(msg);
 }
 
