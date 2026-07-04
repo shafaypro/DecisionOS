@@ -146,7 +146,13 @@ describe("Slack slash-command behaviour (valid signatures)", () => {
     // Empty 200 body so Slack just closes the command.
     expect(await res.text()).toBe("");
     expect(slackClient.openView).toHaveBeenCalledTimes(1);
-    const [token, triggerId] = slackClient.openView.mock.calls[0];
+    // The mock impl declares no params, so its call tuple is typed as []; the
+    // real call passes (token, triggerId, view). Assert the runtime shape.
+    const [token, triggerId] = slackClient.openView.mock.calls[0] as unknown as [
+      string,
+      string,
+      Record<string, unknown>,
+    ];
     expect(token).toBe("xoxb-test-token"); // decrypted bot token
     expect(triggerId).toBe("trigger-xyz");
   });

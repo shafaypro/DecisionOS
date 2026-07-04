@@ -47,6 +47,9 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit
 
+      - name: TypeScript (tests)
+        run: npx tsc -p tsconfig.test.json --noEmit
+
       - name: Lint
         run: npm run lint
 

@@ -101,6 +101,15 @@ export async function GET(
     return NextResponse.json({ error: "IdP did not return an email" }, { status: 400 });
   }
 
+  // Account-takeover guard: if the IdP explicitly reports the email as
+  // unverified, refuse to log in. Otherwise an IdP that lets users set an
+  // arbitrary, unverified `email` could be used to match an existing account
+  // (e.g. an admin) and be issued that user's session. Absent claims are
+  // tolerated (many IdPs omit it), but a `false` is a hard stop.
+  if (idPayload.email_verified === false) {
+    return NextResponse.redirect(new URL(`/login?sso_error=email_unverified`, req.url));
+  }
+
   if (cfg.allowedEmailDomain) {
     const domain = email.split("@")[1];
     if (domain !== cfg.allowedEmailDomain) {

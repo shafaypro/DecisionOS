@@ -82,8 +82,10 @@ function Cell({
   const { header } = useContext(TableSection);
   const cls = cn("px-4 py-3", alignClass[align], className);
   if (header) {
+    // scope="col" lets screen readers associate each data cell with its column
+    // header when navigating cell-by-cell. Applies to every Table consumer.
     return (
-      <th colSpan={colSpan} className={cls}>
+      <th scope="col" colSpan={colSpan} className={cls}>
         <Text>{children}</Text>
       </th>
     );

@@ -134,7 +134,7 @@ export function NotificationBell() {
                     <Text as="span" size="xs" color="inherit">Mark all read</Text>
                   </button>
                 )}
-                <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <button onClick={() => setOpen(false)} aria-label="Close notifications" className="text-slate-400 hover:text-slate-600">
                   <X className="h-4 w-4" />
                 </button>
               </div>

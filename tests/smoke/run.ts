@@ -25,9 +25,30 @@ import { cronAuthTests } from "./cron-auth.test";
 import { errorReportingTests } from "./error-reporting.test";
 import { platformAuthTests } from "./platform-auth.test";
 import { auditTests } from "./audit.test";
+import { csvTests } from "./csv.test";
+import { schemasTests } from "./schemas.test";
+import { observabilityTests } from "./observability.test";
+import { activityEventsTests } from "./activity-events.test";
+import { notifyTests } from "./notify.test";
 
 type TestFn = () => void | Promise<void>;
 type Suite = { name: string; tests: Record<string, TestFn> };
+
+/** Per-test timeout so a hung promise fails that test instead of the whole run. */
+const TEST_TIMEOUT_MS = 10_000;
+function withTimeout(fn: TestFn, label: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`timed out after ${TEST_TIMEOUT_MS}ms`)),
+      TEST_TIMEOUT_MS,
+    );
+    Promise.resolve()
+      .then(fn)
+      .then(() => resolve(), reject)
+      .finally(() => clearTimeout(timer));
+    void label;
+  });
+}
 
 const SUITES: Suite[] = [
   { name: "slack hmac", tests: slackHmacTests },
@@ -47,6 +68,11 @@ const SUITES: Suite[] = [
   { name: "error reporting (PII/secret scrubber)", tests: errorReportingTests },
   { name: "platform auth (provider control plane)", tests: platformAuthTests },
   { name: "audit trail (catalog + secret redaction + attribution)", tests: auditTests },
+  { name: "csv (export escaping + formula-injection guard)", tests: csvTests },
+  { name: "schemas (zod validation + parseBody)", tests: schemasTests },
+  { name: "observability (request-context correlation)", tests: observabilityTests },
+  { name: "activity events (feed labels)", tests: activityEventsTests },
+  { name: "notify (webhook senders)", tests: notifyTests },
 ];
 
 async function main() {
@@ -58,7 +84,7 @@ async function main() {
     console.log(`\n── ${suite.name} ──`);
     for (const [name, fn] of Object.entries(suite.tests)) {
       try {
-        await fn();
+        await withTimeout(fn, name);
         console.log(`  ✓ ${name}`);
         pass++;
       } catch (err) {
@@ -78,7 +104,7 @@ async function main() {
   }
 }
 
-export function assert(cond: unknown, msg: string): asserts cond {
+export function assert(cond: unknown, msg = "assertion failed"): asserts cond {
   if (!cond) throw new Error(msg);
 }
 
