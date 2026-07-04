@@ -4,15 +4,7 @@ import { format } from "date-fns";
 import { withApi } from "@/lib/api-handler";
 import { decisionVisibilityWhere } from "@/lib/tenant";
 import { exportLimiter, mutationKey } from "@/lib/rate-limit";
-
-function escapeCsv(value: string | null | undefined): string {
-  if (value == null) return "";
-  const str = String(value);
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
+import { csvCell as escapeCsv } from "@/lib/csv";
 
 function formatCsvDate(date: Date | null | undefined): string {
   if (!date) return "";

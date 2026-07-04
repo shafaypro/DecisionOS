@@ -1,0 +1,17 @@
+{
+  // Type-check the test suites too. The base tsconfig only includes `src/**`,
+  // so smoke + integration tests (run through tsx/vitest, which transpile
+  // without type-checking) had their types silently unverified - a source
+  // signature change could drift from its tests and still pass CI. This config
+  // extends the base and adds `tests/**` so `tsc -p tsconfig.test.json` covers
+  // them. Wired into CI as a dedicated step.
+  "extends": "./tsconfig.json",
+  "include": [
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tests/**/*.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules", "prisma"]
+}

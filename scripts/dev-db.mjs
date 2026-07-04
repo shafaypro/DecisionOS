@@ -38,10 +38,17 @@ const run = (cmd) => execSync(cmd, { cwd: root, stdio: "inherit" });
 // Generate the SQLite-flavored client (must succeed - the app imports it).
 run(`npx prisma generate --schema "${derived}"`);
 
-// Best-effort: keep dev.db in sync with the models. Don't abort dev start on failure.
+// Keep dev.db in sync with the models. In CI this MUST succeed - the integration
+// suite runs against these tables, and a silently-skipped push turns into a
+// confusing "no such table" failure three steps later. Locally it stays
+// best-effort so `npm run dev` never aborts on a transient push error.
 try {
   run(`npx prisma db push --schema "${derived}" --accept-data-loss`);
-} catch {
+} catch (err) {
+  if (process.env.CI) {
+    console.error("[dev-db] db push failed in CI - the database schema is not ready.");
+    throw err;
+  }
   console.warn("[dev-db] db push skipped/failed - continuing with the existing dev.db.");
 }
 

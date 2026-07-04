@@ -18,8 +18,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { title, category } = await req.json();
-  if (!title?.trim()) return NextResponse.json({ error: "Title is required." }, { status: 400 });
+  const body = await req.json().catch(() => null);
+  const title = typeof body?.title === "string" ? body.title : "";
+  const category = typeof body?.category === "string" ? body.category : "";
+  if (!title.trim()) return NextResponse.json({ error: "Title is required." }, { status: 400 });
 
   const resolved = await resolveAnthropicConfig(session.workspaceId);
   if (!resolved) {

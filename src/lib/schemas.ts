@@ -87,6 +87,14 @@ export const ActionItemWriteSchema = z.object({
 
 export type ActionItemWriteInput = z.infer<typeof ActionItemWriteSchema>;
 
+/**
+ * Partial shape for PATCH (update). Every field optional so a single-axis edit
+ * (e.g. just `status`) doesn't have to resend the whole item - but each field's
+ * own rules still apply when present (mirrors DecisionPatchSchema).
+ */
+export const ActionItemPatchSchema = ActionItemWriteSchema.partial();
+export type ActionItemPatchInput = z.infer<typeof ActionItemPatchSchema>;
+
 // ── Notes ──────────────────────────────────────────────────────────────────────
 
 export const NoteWriteSchema = z.object({

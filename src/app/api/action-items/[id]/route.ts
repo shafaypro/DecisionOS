@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
+import { ActionItemPatchSchema, type ActionItemPatchInput } from "@/lib/schemas";
 
 const itemInclude = {
   assignee: { select: { id: true, name: true } },
@@ -8,15 +9,27 @@ const itemInclude = {
   decision: { select: { id: true, title: true } },
 } as const;
 
-export const PATCH = withApi<undefined, { id: string }>(
-  { require: "writer" },
-  async ({ session, params, req }) => {
+export const PATCH = withApi<ActionItemPatchInput, { id: string }>(
+  { require: "writer", schema: ActionItemPatchSchema },
+  async ({ session, params, body }) => {
     const existing = await prisma.actionItem.findUnique({ where: { id: params.id } });
     if (!existing || existing.workspaceId !== session.workspaceId)
       return NextResponse.json({ error: "Action item not found." }, { status: 404 });
 
-    const body = await req.json().catch(() => ({}));
     const { title, description, status, priority, assigneeId, dueDate, decisionId } = body;
+
+    // Re-pointing an item to another decision must stay inside the caller's
+    // workspace - otherwise a writer could attach an item to a foreign tenant's
+    // decision (POST already enforces this; PATCH previously did not).
+    if (decisionId) {
+      const target = await prisma.decision.findUnique({
+        where: { id: decisionId },
+        select: { workspaceId: true },
+      });
+      if (!target || target.workspaceId !== session.workspaceId) {
+        return NextResponse.json({ error: "Decision not found." }, { status: 404 });
+      }
+    }
 
     const oldAssignee = existing.assigneeId;
 
