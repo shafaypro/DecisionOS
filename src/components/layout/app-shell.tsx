@@ -47,6 +47,13 @@ export function AppShell({
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
+      {/* Skip link - first focusable element; visible only on keyboard focus. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-xs focus:bg-white focus:px-3 focus:py-2 focus:shadow-soft focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        Skip to content
+      </a>
       {/* Sidebar - static on desktop, off-canvas drawer on mobile */}
       <div
         className={cn(
@@ -84,7 +91,7 @@ export function AppShell({
         >
           <Menu className="h-5 w-5" />
         </button>
-        <main className="relative flex-1 overflow-y-auto bg-slate-50">
+        <main id="main-content" className="relative flex-1 overflow-y-auto bg-slate-50">
           <div className="relative min-h-full">{children}</div>
         </main>
       </div>

@@ -201,6 +201,9 @@ export function CommandPalette() {
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
 
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
         className="relative w-full max-w-xl bg-white rounded-xs shadow-soft overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
@@ -212,6 +215,7 @@ export function CommandPalette() {
             onChange={handleInput}
             onKeyDown={handleInputKeyDown}
             placeholder="Search decisions… or type a title and press Tab to quick-log"
+            aria-label="Search decisions"
             className={cn("flex-1 bg-transparent outline-none placeholder:text-text-subtle", TEXT_SIZE.sm, TEXT_COLOR.primary)}
           />
           <Text as="kbd" size="2xs" color="subtle" mono>

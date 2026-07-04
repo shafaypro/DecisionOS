@@ -66,6 +66,7 @@ export function DecisionsTable({ decisions, isViewer }: DecisionsTableProps) {
                   checked={allSelected}
                   ref={(el) => { if (el) el.indeterminate = someSelected; }}
                   onChange={toggleAll}
+                  aria-label="Select all decisions"
                   className="rounded-xs border-slate-300"
                 />
               </Table.Cell>
@@ -89,6 +90,7 @@ export function DecisionsTable({ decisions, isViewer }: DecisionsTableProps) {
                     type="checkbox"
                     checked={selectedIds.includes(d.id)}
                     onChange={() => toggleSelect(d.id)}
+                    aria-label={`Select "${d.title}"`}
                     className="rounded-xs border-slate-300"
                   />
                 </Table.Cell>

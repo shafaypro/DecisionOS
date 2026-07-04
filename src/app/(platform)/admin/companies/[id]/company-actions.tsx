@@ -63,6 +63,17 @@ export function CompanyActions({
   }
 
   function toggleSuspend() {
+    // Suspending locks EVERY member of this company out of the app (they're
+    // redirected to /suspended). Confirm the blast radius before doing it;
+    // reactivating is safe, so it needs no guard.
+    if (
+      !suspended &&
+      !window.confirm(
+        `Suspend ${name}? Every member of this company will be locked out until you reactivate it.`,
+      )
+    ) {
+      return;
+    }
     patch({ status: suspended ? "active" : "suspended" }, () =>
       toast.success(suspended ? `${name} reactivated` : `${name} suspended`),
     );

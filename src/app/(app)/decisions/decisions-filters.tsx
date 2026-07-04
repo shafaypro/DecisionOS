@@ -43,6 +43,7 @@ export function DecisionsFilters({
       <select
         value={currentStatus ?? ""}
         onChange={(e) => handleChange("status", e.target.value)}
+        aria-label="Filter by status"
         className={cn(
           "h-9 rounded-xs bg-white px-3 shadow-soft focus:outline-none focus:ring-2 focus:ring-blue-500",
           TEXT_SIZE.sm,
@@ -58,6 +59,7 @@ export function DecisionsFilters({
       <select
         value={currentOwner ?? ""}
         onChange={(e) => handleChange("owner", e.target.value)}
+        aria-label="Filter by owner"
         className={cn(
           "h-9 rounded-xs bg-white px-3 shadow-soft focus:outline-none focus:ring-2 focus:ring-blue-500",
           TEXT_SIZE.sm,

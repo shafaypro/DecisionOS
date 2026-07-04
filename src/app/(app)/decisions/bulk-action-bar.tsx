@@ -87,7 +87,7 @@ export function BulkActionBar({ selectedIds, decisions, onClear, onDone }: BulkA
         Export CSV
       </Button>
       {error && <Text>{error}</Text>}
-      <button onClick={onClear} className="text-slate-400 hover:text-white ml-2">
+      <button onClick={onClear} aria-label="Clear selection" className="text-slate-400 hover:text-white ml-2">
         <X className="h-4 w-4" />
       </button>
     </div>
