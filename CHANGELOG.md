@@ -4,6 +4,39 @@ All notable changes to DecisionOS are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- CSV exports now neutralize spreadsheet formula injection (cells beginning with
+  `= + - @` are quoted as literal text).
+- SSO login is refused when the identity provider reports the email as
+  unverified, closing an account-takeover path.
+- The action-items update endpoint now validates its body and keeps a re-pointed
+  decision inside the caller's workspace.
+
+### Fixed
+
+- The notification badge now reflects the true unread count instead of only the
+  most recent 30 notifications.
+- AI drafting returns a clean 400 on a malformed request body instead of a 500.
+
+### Changed
+
+- Documentation truthfulness pass: corrected the local database-setup steps
+  (`npm run dev` bootstraps SQLite; `prisma migrate dev` targets Postgres),
+  removed a retired free-tier/plans reference, documented `COOKIE_SECURE` and the
+  `ANTHROPIC_MODEL`/`ANTHROPIC_BASE_URL` overrides, and refreshed the feature,
+  API, page, and data-model listings to match what ships.
+- Tightened the Content-Security-Policy (dropped unused payment-provider origins).
+
+### Internal
+
+- Test suites are now type-checked in CI (`tsconfig.test.json`).
+- Added smoke coverage for CSV escaping, Zod schemas, request-context
+  observability, activity-feed labels, and webhook senders; the smoke runner now
+  enforces a per-test timeout.
+
 ## [0.1.0] - 2026-07-02
 
 Initial public, open-source release.

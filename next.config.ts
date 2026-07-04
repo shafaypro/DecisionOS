@@ -22,8 +22,10 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://api.anthropic.com https://api.stripe.com",
-      "frame-src https://js.stripe.com https://hooks.stripe.com",
+      // AI features call the Anthropic API from the server; the browser never
+      // talks to it directly, but a self-hosted Anthropic-compatible gateway
+      // configured per-workspace may, so we keep the connect-src allowance.
+      "connect-src 'self' https://api.anthropic.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

@@ -87,7 +87,7 @@ Most teams make hundreds of decisions per quarter - and forget 90% of them withi
 | **Workspace Settings** | Admins can update the workspace name and slug |
 | **Audit Log** | Every significant mutation (create, update, status change, note added, link added, reviewed) emits a `DecisionEvent` record |
 | **Multi-tenant Workspaces** | Every user belongs to a workspace; all data is strictly scoped by `workspaceId` |
-| **Platform Control Plane** | Provider super-admin layer above workspaces: a `/admin` console to see every company, **enter** one to manage it, and suspend / re-plan it. Access is granted only via the `PLATFORM_ADMIN_EMAILS` allow-list - see [`docs/PLATFORM_ADMIN.md`](docs/PLATFORM_ADMIN.md) |
+| **Platform Control Plane** | Provider super-admin layer above workspaces: a `/admin` console to see every company, **enter** one to manage it, and rename or suspend / reactivate it. Access is granted only via the `PLATFORM_ADMIN_EMAILS` allow-list - see [`docs/PLATFORM_ADMIN.md`](docs/PLATFORM_ADMIN.md) |
 | **JWT Authentication** | Stateless, cookie-based sessions via `jose` - no third-party auth dependency |
 | **Decision Graph** | Interactive force-directed canvas at `/graph` - nodes sized by relation count, edges colour-coded by type, pan/zoom/drag, hover to inspect, click to navigate |
 | **Decision Health** | Per-decision health signal (healthy / overdue / stale / orphaned / superseded-unreviewed) - surfaced as a badge on every decision |
@@ -136,7 +136,7 @@ Utilities         date-fns · lucide-react · clsx · tailwind-merge · bcryptjs
 ```
 DecisionOS/
 ├── prisma/
-│   ├── schema.prisma               # Full data model (9 models)
+│   ├── schema.prisma               # Full data model (25 models)
 │   ├── seed.ts                     # Demo workspace seeder
 │   └── migrations/                 # Postgres migration history
 ├── prisma.config.ts                # Prisma v7 config (DATABASE_URL, adapter, migrations path)
@@ -338,10 +338,10 @@ See [`docs/PLATFORM_ADMIN.md`](docs/PLATFORM_ADMIN.md).
 
 | Method | Route | Auth | Body | Description |
 |---|---|---|---|---|
-| `GET` | `/api/platform/workspaces` | **platform** | - | List every company with plan, status, member/decision counts |
+| `GET` | `/api/platform/workspaces` | **platform** | - | List every company with status and member/decision counts |
 | `POST` | `/api/platform/workspaces/:id/enter` | **platform** | - | Enter a company (re-issues the session at that workspace) |
 | `POST` | `/api/platform/exit` | **platform** | - | Stop impersonating; return to your home workspace |
-| `PATCH` | `/api/platform/workspaces/:id` | **platform** | `{ status?, plan? }` | Suspend/reactivate and/or override a company's plan |
+| `PATCH` | `/api/platform/workspaces/:id` | **platform** | `{ name?, slug?, status? }` | Rename and/or suspend / reactivate a company |
 
 ### Utilities
 
@@ -427,13 +427,22 @@ The full documentation map is at **[`docs/`](docs/README.md)**.
 
 ### Database setup
 
-```bash
-# Apply migrations (creates dev.db with the full schema)
-npx prisma migrate dev
+**Local dev needs no manual database steps.** The committed schema targets
+PostgreSQL (all migrations are Postgres-dialect), so `prisma migrate dev` against
+the default SQLite `dev.db` would fail on a provider mismatch. Instead, `npm run
+dev` runs a `predev` hook (`scripts/dev-db.mjs`) that derives a SQLite-flavored
+schema, generates the client, and syncs `dev.db` for you.
 
-# Optional: open Prisma Studio to browse data
-npx prisma studio
+```bash
+# Just start the dev server - the SQLite dev database is set up automatically.
+npm run dev
+
+# Optional: browse the local data (point Studio at the derived SQLite schema).
+npx prisma studio --schema prisma/dev-sqlite.prisma
 ```
+
+Prefer Postgres locally? Set a `postgres://` `DATABASE_URL` (e.g. `docker compose
+up -d`); then the committed schema and `npx prisma migrate dev` apply directly.
 
 ### Seed demo data
 
@@ -488,7 +497,7 @@ npm run dev          # Start development server (Turbopack, port 3001)
 npm run build        # Production build
 npm run start        # Start production server
 npm run lint         # ESLint check
-npm run test:smoke   # Run zero-dep smoke tests (17 suites: Slack HMAC, crypto, rate limiter, decision health, similarity, graph layout, auth guards, utils, review token, decision retrieval, session, api foundation, workspace summary, cron auth, error reporting, platform auth, audit)
+npm run test:smoke   # Run zero-dep smoke tests (22 suites: Slack HMAC, crypto, rate limiter, decision health, similarity, graph layout, auth guards, utils, review token, decision retrieval, session, api foundation, workspace summary, cron auth, error reporting, platform auth, audit, csv, schemas, observability, activity events, notify)
 npm run test:integration  # Vitest - real route handlers vs DB (tenant isolation, visibility, authz)
 npm test             # Smoke + integration
 npx tsc --noEmit     # TypeScript type check (no emit)
@@ -510,6 +519,9 @@ npx prisma migrate reset        # Drop + recreate DB (destructive)
 | `/decisions/:id` | Decision detail - all fields, health badge, blast radius, reactions, notes, links, tags, version history, reviews, audit trail |
 | `/decisions/:id/edit` | Edit all decision fields (snapshots a version before saving) |
 | `/decisions/:id/history` | Full field-diff timeline - before/after for every edit |
+| `/board` | Kanban board - decisions grouped by status, with per-card move/delete actions |
+| `/my-work` | Everything assigned to or owned by you - decisions and action items in one place |
+| `/activity` | Workspace activity feed with event-type filtering |
 | `/ask` | **Ask DecisionOS** - ask your decision history in plain English; grounded, cited answers with clickable sources |
 | `/graph` | Interactive decision graph - force-directed canvas with pan/zoom/drag and edge-type legend |
 | `/reviews` | Workspace-wide reviews hub - overdue, upcoming, recent |
@@ -517,9 +529,11 @@ npx prisma migrate reset        # Drop + recreate DB (destructive)
 | `/tags` | Tag management (admins create/delete; all members apply) |
 | `/team` | Member roster + invite form (admin) |
 | `/settings` | Workspace name and slug settings (admin) |
+| `/settings/templates` | Decision template management - create/edit reusable intake templates (admin) |
+| `/settings/audit` | Workspace security audit log viewer - immutable, filterable trail |
 | `/settings/sso` | OIDC SSO configuration - issuer, client ID/secret, email domain, enforce SSO |
 | `/settings/integrations` | Slack install, Anthropic API key, per-workspace integration config |
-| `/admin` | **Platform staff only** - provider console listing every company; enter, suspend, or re-plan a workspace (see [`docs/PLATFORM_ADMIN.md`](docs/PLATFORM_ADMIN.md)) |
+| `/admin` | **Platform staff only** - provider console listing every company; enter, rename, or suspend / reactivate a workspace (see [`docs/PLATFORM_ADMIN.md`](docs/PLATFORM_ADMIN.md)) |
 | `/share/:id` | **Public** read-only view of a workspace-visible decision - no login required |
 | `/api/decisions/export` | Triggers CSV file download of all workspace decisions |
 
@@ -553,10 +567,11 @@ This project targets **Next.js 16.2.x** which ships Turbopack as the default bun
 - [x] Decision versioning - full field diff history with before/after timeline
 - [x] AI-assisted decision drafting (Anthropic integration, per-workspace key)
 - [x] Ask DecisionOS - grounded, cited natural-language Q&A over the decision log (graceful semantic-search fallback)
-- [x] Platform control plane - provider super-admin console to manage all companies (enter / suspend / re-plan)
-- [ ] Viewer role (read-only access below Member)
-- [ ] Bulk actions (archive multiple decisions, bulk-export filtered results)
-- [ ] Comment threads on notes (replies)
+- [x] Platform control plane - provider super-admin console to manage all companies (enter / rename / suspend / reactivate)
+- [x] Viewer role (read-only access below Member)
+- [x] Bulk actions (archive multiple decisions, bulk-export filtered results)
+- [x] Kanban board, My Work, activity feed, in-app notifications, and decision watching
+- [ ] Comment threads on notes (replies) - API and data model are in place; detail-page UI is not yet wired up
 
 ---
 
