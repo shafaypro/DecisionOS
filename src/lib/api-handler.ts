@@ -16,6 +16,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { z } from "zod";
 import { getSession, type SessionPayload } from "./session";
 import { authorizeRole, type RequireLevel } from "./authorize";
+import { isPlatformAdmin } from "./auth-guards";
+import { revalidateWorkspaceAccess } from "./access-control";
 import { parseBody } from "./schemas";
 import { logger } from "./logger";
 
@@ -55,6 +57,18 @@ export function withApi<TBody = undefined, TParams = Record<string, never>>(
       const authz = authorizeRole(session.role, opts.require ?? "auth");
       if (!authz.ok) {
         return NextResponse.json({ error: authz.error }, { status: authz.status });
+      }
+
+      // Re-check that the 7-day cookie still reflects live access: a removed
+      // member or a suspended workspace must lose API access now, not whenever
+      // the session happens to expire. Platform staff who have "entered" a
+      // workspace have no membership row there by design (their privilege comes
+      // from the allow-list), so they bypass this check.
+      if (!isPlatformAdmin(session.platformRole)) {
+        const access = await revalidateWorkspaceAccess(session.userId, session.workspaceId);
+        if (!access.ok) {
+          return NextResponse.json({ error: access.error }, { status: access.status });
+        }
       }
 
       let body = undefined as TBody;

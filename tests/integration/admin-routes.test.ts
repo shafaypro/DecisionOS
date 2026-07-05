@@ -70,6 +70,17 @@ beforeAll(async () => {
   const aMember = await mk("amember");
   const bAdmin = await mk("badmin");
 
+  // Every driven session must map to a real membership - withApi now revalidates
+  // that the caller still belongs to their workspace. (The per-test `sessionFor`
+  // role is what authorization keys off; these rows just establish membership.)
+  await prisma.workspaceMembership.createMany({
+    data: [
+      { workspaceId: wsA.id, userId: aAdmin.id, role: "admin" },
+      { workspaceId: wsA.id, userId: aMember.id, role: "member" },
+      { workspaceId: wsB.id, userId: bAdmin.id, role: "admin" },
+    ],
+  });
+
   const tagA = await prisma.tag.create({ data: { workspaceId: wsA.id, name: `${MARK}-tagA`, color: "#111111" } });
   const tagB = await prisma.tag.create({ data: { workspaceId: wsB.id, name: `${MARK}-tagB`, color: "#222222" } });
 

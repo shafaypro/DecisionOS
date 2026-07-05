@@ -3,10 +3,19 @@ import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { clientKey, searchLimiter } from "@/lib/rate-limit";
 import { decisionVisibilityWhere } from "@/lib/tenant";
+import { isPlatformAdmin } from "@/lib/auth-guards";
+import { revalidateWorkspaceAccess } from "@/lib/access-control";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  // This route reads workspace decisions, so it must honor live access too (it
+  // predates withApi and calls getSession directly).
+  if (!isPlatformAdmin(session.platformRole)) {
+    const access = await revalidateWorkspaceAccess(session.userId, session.workspaceId);
+    if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+  }
 
   // Rate limit per workspace + IP - search fans out across fields and is cheap to abuse.
   const rl = await searchLimiter.check(`${session.workspaceId}:${clientKey(req)}`);
