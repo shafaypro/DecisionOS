@@ -21,6 +21,8 @@ Capture what was decided, why, who decided it, alternatives considered, assumpti
 [![GitHub stars](https://img.shields.io/github/stars/shafaypro/DecisionOS?style=flat-square)](https://github.com/shafaypro/DecisionOS/stargazers)
 [![GitHub issues](https://img.shields.io/github/issues/shafaypro/DecisionOS?style=flat-square)](https://github.com/shafaypro/DecisionOS/issues)
 
+[**📚 Documentation**](https://shafaypro.github.io/DecisionOS/) · [**🚀 Quick start**](#quick-start) · [**✨ Features**](#features) · [**🤝 Contributing**](#contributing)
+
 </div>
 
 ---
@@ -41,48 +43,29 @@ Most teams make hundreds of decisions per quarter - and forget 90% of them withi
 
 ---
 
-## Table of Contents
+## Quick start
 
-- [Overview](#overview)
-- [Screenshots](#screenshots)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Data Model](#data-model)
-- [REST API Reference](#rest-api-reference)
-- [Authentication Flow](#authentication-flow)
-- [Getting Started](#getting-started)
-- [Demo](#demo)
-- [Available Scripts](#available-scripts)
-- [Key Pages](#key-pages)
-- [Roadmap](#roadmap)
-- [Documentation](#documentation)
-- [Contributing](#contributing)
-- [License](#license)
+Run the full app locally in ~2 minutes. Requirements: Node.js 20+ and npm 10+ - **no database to install** (local dev bootstraps SQLite automatically).
 
----
+```bash
+git clone https://github.com/shafaypro/DecisionOS.git
+cd DecisionOS
+npm install
+cp .env.example .env        # defaults are fine for local dev
 
-## Screenshots
+npm run dev                 # http://localhost:3001
+curl http://localhost:3001/api/seed   # in another terminal - loads the demo workspace
+```
 
-> Captured live from a running instance with the seeded demo workspace (`admin@acme.demo`).
+Then sign in with the seeded demo accounts:
 
-### Sign in
-![Sign in](docs/screenshots/01-landing.png)
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@acme.demo` | `password123` |
+| Member | `sarah@acme.demo` | `password123` |
+| Member | `james@acme.demo` | `password123` |
 
-### Analytics - workspace health at a glance
-![Workspace health and analytics](docs/screenshots/02-dashboard.png)
-
-### Decisions - filters, workspace memory, and focus tabs
-![Decisions List](docs/screenshots/03-decisions-list.png)
-
-### Decision Detail - full reasoning record
-![Decision Detail](docs/screenshots/04-decision-detail.png)
-
-### Log a Decision - structured intake with capture-quality meter
-![New Decision Form](docs/screenshots/05-new-decision.png)
-
-### Decision Graph - interactive map of how decisions connect
-![Decision Graph](docs/screenshots/06-decision-graph.png)
+> **Going further:** the [Setup guide](docs/SETUP.md) covers everything else - environment variables, Postgres, Slack bot, OIDC SSO, email, scheduled jobs, and production deployment (Docker Compose, EC2, GCP, ECS, Kubernetes - see [deployment docs](docs/deployment/README.md)).
 
 ---
 
@@ -129,442 +112,34 @@ Most teams make hundreds of decisions per quarter - and forget 90% of them withi
 
 ---
 
-## Tech Stack
+## Screenshots
+
+> Captured live from a running instance with the seeded demo workspace.
+
+### Analytics - workspace health at a glance
+![Workspace health and analytics](docs/screenshots/02-dashboard.png)
+
+### Decision Detail - full reasoning record
+![Decision Detail](docs/screenshots/04-decision-detail.png)
+
+### Decision Graph - interactive map of how decisions connect
+![Decision Graph](docs/screenshots/06-decision-graph.png)
+
+*More screens (sign-in, decisions list, structured intake) in the [docs](https://shafaypro.github.io/DecisionOS/).*
+
+---
+
+## Tech stack
 
 ```
 Frontend          Next.js 16.2 (App Router) · React 19 · TypeScript 5
 Styling           Tailwind CSS v4 · Radix UI primitives · class-variance-authority
-Data Layer        Prisma v7 · @prisma/adapter-libsql · SQLite (libsql)
-Auth              Custom JWT sessions (jose) · HttpOnly cookies
-Forms             React 19 (useState + useTransition + fetch) · REST API routes
-Utilities         date-fns · lucide-react · clsx · tailwind-merge · bcryptjs
+Data Layer        Prisma v7 (driver adapters) · PostgreSQL (prod) / SQLite (dev)
+Auth              Encrypted JWE sessions (jose) · HttpOnly cookies · OIDC SSO
+Testing & CI      Zero-dep smoke runner · Vitest integration suite · GitHub Actions
 ```
 
-### Key architectural decisions
-
-- **Prisma v7** uses a mandatory driver adapter. We use `@prisma/adapter-libsql` with a local SQLite file in development. The generated TypeScript client lives in `src/generated/prisma/` (not `node_modules/@prisma/client`).
-- **Next.js 16 proxy** replaces the classic `middleware.ts` convention. The auth guard lives in `src/proxy.ts` and exports a `proxy` function (not `middleware`).
-- **REST API routes for all mutations** - all state-changing operations go through `src/app/api/` route handlers called via `fetch()` from client components. This sidesteps a Turbopack 16.2.x bug where sharing a layout that contains a server action causes all action dispatches on child pages to be misrouted to the layout's action instead of the intended one.
-- **No next-auth** - authentication is a thin custom JWT layer in `src/lib/session.ts`. Sessions are encrypted with `jose` (`EncryptJWT` / `A256GCM`) and stored in a `session` HttpOnly cookie. This keeps full control over the session payload (userId, workspaceId, role, email, name) without any external dependency.
-- **Workspace-scoped everything** - every Prisma query in API routes checks `workspaceId === session.workspaceId` before returning or mutating data. There is no cross-workspace data leakage by design.
-
----
-
-## Project Structure
-
-> The tree below shows the core layout. Many features have been added since the initial build (Slack, SSO, graph, analytics, etc.) - see [`docs/SETUP.md`](docs/SETUP.md) for the full module breakdown.
-
-```
-DecisionOS/
-├── prisma/
-│   ├── schema.prisma               # Full data model (25 models)
-│   ├── seed.ts                     # Demo workspace seeder
-│   └── migrations/                 # Postgres migration history
-├── prisma.config.ts                # Prisma v7 config (DATABASE_URL, adapter, migrations path)
-├── src/
-│   ├── actions/                    # Legacy server actions (auth only; all mutations now in api/)
-│   │   ├── auth.ts                 # signup, login, logout (still server actions - outside app layout)
-│   │   ├── decisions.ts            # (kept for reference; superseded by api/decisions/)
-│   │   ├── team.ts                 # (superseded by api/team/)
-│   │   ├── settings.ts             # (superseded by api/settings/)
-│   │   └── tags.ts                 # (superseded by api/tags/)
-│   ├── app/
-│   │   ├── (app)/                  # Protected routes - require valid session
-│   │   │   ├── layout.tsx          # App shell - session guard + Sidebar
-│   │   │   ├── dashboard/          # Stats cards + recent activity feed
-│   │   │   ├── decisions/
-│   │   │   │   ├── page.tsx        # Searchable, filterable decisions list
-│   │   │   │   ├── decisions-filter.tsx  # Client-side filter bar (URL params)
-│   │   │   │   ├── new/page.tsx    # Create decision form
-│   │   │   │   └── [id]/
-│   │   │   │       ├── page.tsx          # Decision detail - full record view
-│   │   │   │       ├── edit/page.tsx     # Edit decision form
-│   │   │   │       ├── note-form.tsx     # Add note (fetch → /api/decisions/notes)
-│   │   │   │       ├── link-form.tsx     # Add link (fetch → /api/decisions/links)
-│   │   │   │       ├── review-form.tsx   # Submit review (fetch → /api/decisions/reviews)
-│   │   │   │       ├── delete-note-button.tsx
-│   │   │   │       ├── delete-link-button.tsx
-│   │   │   │       ├── archive-button.tsx
-│   │   │   │       ├── tag-manager.tsx   # Apply/remove tags inline
-│   │   │   │       └── share-button.tsx  # Copy /share/:id URL to clipboard
-│   │   │   ├── reviews/            # Workspace-wide review tracking
-│   │   │   ├── tags/               # Tag management (admin: create/delete)
-│   │   │   ├── team/               # Member list + invite form
-│   │   │   └── settings/           # Workspace name / slug
-│   │   ├── login/                  # Public - login form (server action safe; no app layout)
-│   │   ├── signup/                 # Public - signup + workspace creation
-│   │   ├── share/[id]/             # Public - read-only decision share page (no auth)
-│   │   └── api/
-│   │       ├── seed/route.ts       # GET  - populate demo data
-│   │       ├── decisions/
-│   │       │   ├── route.ts        # POST - create decision
-│   │       │   ├── [id]/route.ts   # PUT  - update decision
-│   │       │   ├── notes/route.ts  # POST / DELETE - notes
-│   │       │   ├── links/route.ts  # POST / DELETE - resource links
-│   │       │   ├── reviews/route.ts# POST - submit outcome review
-│   │       │   ├── archive/route.ts# POST - archive decision
-│   │       │   ├── tags/route.ts   # POST / DELETE - tag assignment
-│   │       │   └── export/route.ts # GET  - CSV download
-│   │       ├── tags/route.ts       # POST / DELETE - workspace tag CRUD (admin)
-│   │       ├── team/route.ts       # POST - invite member
-│   │       └── settings/route.ts   # PUT  - update workspace
-│   ├── components/
-│   │   ├── decisions/
-│   │   │   ├── decision-form.tsx   # Full create/edit form (self-contained, fetch-based)
-│   │   │   └── status-badge.tsx    # StatusBadge, OutcomeBadge, ImpactBadge, CategoryBadge
-│   │   ├── layout/
-│   │   │   └── sidebar.tsx         # Nav sidebar with workspace name + logout
-│   │   └── ui/                     # Radix-based primitives: Button, Card, Input, Label,
-│   │                               #   Textarea, Badge, Select, Separator
-│   ├── lib/
-│   │   ├── prisma.ts               # PrismaClient singleton (libsql adapter)
-│   │   ├── session.ts              # JWT create / get / delete (jose, HttpOnly cookie)
-│   │   └── utils.ts                # CATEGORIES, STATUSES, IMPACT_LEVELS, OUTCOME_STATUSES,
-│   │                               #   LINK_TYPES, cn(), formatDate(), formatRelativeDate(), slugify()
-│   └── proxy.ts                    # Route protection (Next.js 16 middleware replacement)
-├── tests/                          # smoke/ (zero-dep runner) + integration/ (Vitest)
-├── docs/                           # Setup, architecture, deployment, compliance (published via MkDocs)
-├── deploy/                         # Terraform + Compose for EC2, GCP, ECS, Kubernetes
-├── scripts/                        # dev-db.mjs - zero-config local SQLite bootstrap
-├── .github/                        # CI workflows, issue/PR templates, Dependabot, CODEOWNERS
-├── Dockerfile                      # Multi-stage build: slim runner + one-shot migrator
-├── docker-compose.yml              # Local dev infra (Postgres + Redis); prod stack lives in deploy/
-├── .env.example                    # Environment template (copy to .env)
-└── tsconfig.json
-```
-
----
-
-## Data Model
-
-### Entity Relationship Summary
-
-```
-Workspace  ──< WorkspaceMembership >── User
-           ──< Decision
-                  ──< DecisionNote       (userId → User)
-                  ──< DecisionLink       (createdByUserId → User)
-                  ──< DecisionReview     (reviewedByUserId → User)
-                  ──< DecisionTag >── Tag (workspaceId → Workspace)
-                  ──< DecisionEvent      (userId → User, audit log)
-```
-
-### Workspace fields (selected)
-
-| Field | Type | Description |
-|---|---|---|
-| `status` | String | `active` / `suspended` - lifecycle set by the platform console; suspended workspaces lock out their members (see [`docs/PLATFORM_ADMIN.md`](docs/PLATFORM_ADMIN.md)) |
-
-### Decision fields
-
-| Field | Type | Description |
-|---|---|---|
-| `title` | String | Short decision title (3-200 chars) |
-| `summary` | String| 1-2 sentence description shown in list views (max 500) |
-| `category` | String | `engineering` / `product` / `hiring` / `finance` / `marketing` / `operations` / `strategy` / `other` |
-| `status` | String | `draft` / `in_review` / `approved` / `superseded` / `deprecated` / `reversed` / `archived` |
-| `outcomeStatus` | String| `unknown` / `successful` / `partially_successful` / `unsuccessful` / `reversed` |
-| `impactLevel` | String | `low` / `medium` / `high` / `critical` |
-| `visibility` | String | `workspace` (all members) / `private` (creator only) |
-| `ownerUserId` | String| Responsible person (FK → User) |
-| `problemStatement` | String| What problem prompted this decision? |
-| `chosenOption` | String| What specific option was selected? |
-| `rationale` | String| Why was this option chosen? |
-| `alternativesConsidered` | String| What other options were evaluated? |
-| `assumptions` | String| Conditions that must hold for this to work |
-| `risks` | String| Known failure modes and downsides |
-| `decisionDate` | DateTime | When the decision was made |
-| `reviewDate` | DateTime | When to revisit the decision |
-| `reviewedAt` | DateTime | When the first review was submitted |
-
-### Tag fields
-
-| Field | Type | Description |
-|---|---|---|
-| `name` | String | Tag label (unique per workspace, max 50 chars) |
-| `color` | String| Hex colour (e.g. `#6366f1`) used for badge rendering |
-
-### DecisionReview fields
-
-| Field | Type | Description |
-|---|---|---|
-| `outcomeStatus` | String | `successful` / `partially_successful` / `unsuccessful` / `reversed` |
-| `summary` | String| What actually happened |
-| `lessonsLearned` | String| What would you do differently? |
-| `followUpAction` | String| Follow-on decisions or actions required |
-
-### DecisionEvent types (audit log)
-
-`created` · `updated` · `status_changed` · `note_added` · `link_added` · `reviewed`
-
----
-
-## REST API Reference
-
-All routes require a valid session cookie (`session`) except `/api/seed` and the public share page.
-
-### Decisions
-
-| Method | Route | Auth | Body / Params | Description |
-|---|---|---|---|---|
-| `POST` | `/api/decisions` | member | Decision fields (JSON) | Create a new decision |
-| `PUT` | `/api/decisions/:id` | member | Decision fields (JSON) | Update an existing decision |
-| `POST` | `/api/decisions/archive` | owner or admin | `{ decisionId }` | Archive a decision (sets status = `Archived`) |
-| `POST` | `/api/decisions/ask` | any member | `{ question }` | Ask a natural-language question; returns a grounded, cited answer + ranked source decisions (degrades to semantic search with no AI key) |
-| `GET` | `/api/decisions/export` | member | - | Download all workspace decisions as CSV |
-
-### Notes
-
-| Method | Route | Auth | Body | Description |
-|---|---|---|---|---|
-| `POST` | `/api/decisions/notes` | member | `{ decisionId, content }` | Add a note to a decision |
-| `DELETE` | `/api/decisions/notes` | owner or admin | `{ noteId }` | Delete a note |
-
-### Links
-
-| Method | Route | Auth | Body | Description |
-|---|---|---|---|---|
-| `POST` | `/api/decisions/links` | member | `{ decisionId, label, url, linkType }` | Add a resource link |
-| `DELETE` | `/api/decisions/links` | owner or admin | `{ linkId }` | Remove a link |
-
-Link types: `rfc` · `pr` · `adr` · `doc` · `article` · `ticket` · `other`
-
-### Reviews
-
-| Method | Route | Auth | Body | Description |
-|---|---|---|---|---|
-| `POST` | `/api/decisions/reviews` | member | `{ decisionId, outcomeStatus, summary?, lessonsLearned?, followUpAction? }` | Submit an outcome review |
-
-### Tags
-
-| Method | Route | Auth | Body | Description |
-|---|---|---|---|---|
-| `POST` | `/api/tags` | **admin** | `{ name, color? }` | Create a workspace tag |
-| `DELETE` | `/api/tags` | **admin** | `{ tagId }` | Delete a workspace tag |
-| `POST` | `/api/decisions/tags` | member | `{ decisionId, tagId }` | Apply a tag to a decision |
-| `DELETE` | `/api/decisions/tags` | member | `{ decisionId, tagId }` | Remove a tag from a decision |
-
-### Team & Settings
-
-| Method | Route | Auth | Body | Description |
-|---|---|---|---|---|
-| `POST` | `/api/team` | **admin** | `{ email, role }` | Invite a member (creates user if none exists) |
-| `PUT` | `/api/settings` | **admin** | `{ name, slug }` | Update workspace name and URL slug |
-
-### Platform (provider)
-
-Staff-only routes for the platform control plane - gated by `withPlatformApi` (401 if
-unauthenticated, 403 without `platformRole`). Intentionally **not** scoped to a single workspace.
-See [`docs/PLATFORM_ADMIN.md`](docs/PLATFORM_ADMIN.md).
-
-| Method | Route | Auth | Body | Description |
-|---|---|---|---|---|
-| `GET` | `/api/platform/workspaces` | **platform** | - | List every company with status and member/decision counts |
-| `POST` | `/api/platform/workspaces/:id/enter` | **platform** | - | Enter a company (re-issues the session at that workspace) |
-| `POST` | `/api/platform/exit` | **platform** | - | Stop impersonating; return to your home workspace |
-| `PATCH` | `/api/platform/workspaces/:id` | **platform** | `{ name?, slug?, status? }` | Rename and/or suspend / reactivate a company |
-
-### Utilities
-
-| Method | Route | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/seed` | - | Seed demo workspace (idempotent) |
-
----
-
-## Authentication Flow
-
-```
-POST /login  (server action)
-  → bcrypt.compare(password, user.passwordHash)
-  → createSession({ userId, workspaceId, role, email, name })
-      → jose.EncryptJWT(...).encrypt(SESSION_SECRET)
-      → Set-Cookie: session=<jwt>; HttpOnly; SameSite=Lax; Path=/
-
-Every request
-  → proxy.ts intercepts
-  → decrypt(cookie) → if no valid session → redirect /login
-  → if session + public route → redirect /dashboard
-
-API routes
-  → getSession() → decrypt cookie → return session payload
-  → check session.workspaceId matches resource's workspaceId
-```
-
-Session payload shape:
-```ts
-{
-  userId: string
-  workspaceId: string
-  role: "admin" | "member" | "viewer"
-  email: string
-  name: string
-  // Platform control plane - present only for provider staff (see docs/PLATFORM_ADMIN.md)
-  platformRole?: "superadmin"      // sourced from PLATFORM_ADMIN_EMAILS at login; never DB-granted
-  platformHomeWorkspaceId?: string // the admin's own workspace - the way back from impersonation
-}
-```
-
----
-
-## Getting Started
-
-> **Full step-by-step setup** - including Slack bot install, OIDC SSO, email providers, Vercel Cron, and deploy - lives in [`docs/SETUP.md`](docs/SETUP.md). The quickstart below is just enough to run locally.
-
-### Prerequisites
-
-- Node.js 20+
-- npm 10+
-
-### Installation
-
-```bash
-git clone https://github.com/shafaypro/DecisionOS.git
-cd DecisionOS
-npm install
-```
-
-### Environment setup
-
-Create a `.env` file in the project root:
-
-```env
-DATABASE_URL="file:./dev.db"
-SESSION_SECRET="change-this-to-a-long-random-secret-in-production"
-```
-
-> **Production note:** Generate a strong `SESSION_SECRET` with `openssl rand -base64 32`. The secret is used to sign and encrypt JWT session cookies.
-
-### Deployment
-
-DecisionOS ships with Terraform/Compose for several targets (single EC2, GCP free-tier, AWS ECS, Kubernetes, or plain Docker Compose). **CI/CD runs on GitHub Actions**: PRs are gated by `ci.yml` (type-check, lint, smoke + integration tests, build), and `release-images.yml` publishes container images to **GHCR** when you publish a release - your host just pulls them.
-
-- **[Architecture diagram + guide](docs/deployment/ARCHITECTURE.md)** - the whole system in one view.
-- **[Deployment guide](docs/deployment/README.md)** - compare the targets and pick one.
-- **[AWS EC2 runbook](docs/deployment/AWS_EC2_DEPLOYMENT_RUNBOOK.md)** - self-host on a single box, step by step.
-- **[GCP free-tier](docs/deployment/GCP.md)** - the Google Cloud alternative.
-
-The full documentation map is at **[`docs/`](docs/README.md)**.
-
-### Database setup
-
-**Local dev needs no manual database steps.** The committed schema targets
-PostgreSQL (all migrations are Postgres-dialect), so `prisma migrate dev` against
-the default SQLite `dev.db` would fail on a provider mismatch. Instead, `npm run
-dev` runs a `predev` hook (`scripts/dev-db.mjs`) that derives a SQLite-flavored
-schema, generates the client, and syncs `dev.db` for you.
-
-```bash
-# Just start the dev server - the SQLite dev database is set up automatically.
-npm run dev
-
-# Optional: browse the local data (point Studio at the derived SQLite schema).
-npx prisma studio --schema prisma/dev-sqlite.prisma
-```
-
-Prefer Postgres locally? Set a `postgres://` `DATABASE_URL` (e.g. `docker compose
-up -d`); then the committed schema and `npx prisma migrate dev` apply directly.
-
-### Seed demo data
-
-Start the dev server first, then hit the seed endpoint once:
-
-```bash
-npm run dev
-curl http://localhost:3001/api/seed
-```
-
-This creates:
-- A demo workspace (`Acme Demo`)
-- 3 users (admin + 2 members)
-- 6 decisions across categories with full reasoning content
-- Sample notes, links, tags, and an outcome review
-
-### Run the dev server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3001](http://localhost:3001) (port 3001 is the default in this project's config).
-
----
-
-## Demo
-
-DecisionOS is free and open source - spin up the full app locally in ~2 minutes (see [Getting Started](#getting-started)), seed realistic demo data, and sign in. No signup limits, no credit card, nothing to unlock.
-
-```bash
-npm install && npm run dev      # http://localhost:3001
-curl http://localhost:3001/api/seed   # in another terminal - loads the demo workspace
-```
-
-After seeding (`GET /api/seed`), sign in with:
-
-| Role | Email | Password |
-|---|---|---|
-| Admin | `admin@acme.demo` | `password123` |
-| Member | `sarah@acme.demo` | `password123` |
-| Member | `james@acme.demo` | `password123` |
-
-The admin account has full access to tag management, team invitations, workspace settings, and can delete any note or link regardless of author.
-
----
-
-## Available Scripts
-
-```bash
-npm run dev          # Start development server (Turbopack, port 3001)
-npm run build        # Production build
-npm run start        # Start production server
-npm run lint         # ESLint check
-npm run test:smoke   # Run zero-dep smoke tests (22 suites: Slack HMAC, crypto, rate limiter, decision health, similarity, graph layout, auth guards, utils, review token, decision retrieval, session, api foundation, workspace summary, cron auth, error reporting, platform auth, audit, csv, schemas, observability, activity events, notify)
-npm run test:integration  # Vitest - real route handlers vs DB (tenant isolation, visibility, authz)
-npm test             # Smoke + integration
-npx tsc --noEmit     # TypeScript type check (no emit)
-npx prisma migrate dev          # Apply pending migrations
-npx prisma studio               # Open Prisma Studio GUI
-npx prisma db push              # Push schema changes without migration files (dev only)
-npx prisma migrate reset        # Drop + recreate DB (destructive)
-```
-
----
-
-## Key Pages
-
-| Route | Description |
-|---|---|
-| `/dashboard` | Workspace health - decision debt pill, stats cards, recent activity feed, overdue reviews |
-| `/decisions` | Full decision list with search, multi-filter sidebar, and onboarding checklist |
-| `/decisions/new` | Create a new decision - full structured form with template picker and re-decide detector |
-| `/decisions/:id` | Decision detail - all fields, health badge, blast radius, reactions, notes, links, tags, version history, reviews, audit trail |
-| `/decisions/:id/edit` | Edit all decision fields (snapshots a version before saving) |
-| `/decisions/:id/history` | Full field-diff timeline - before/after for every edit |
-| `/board` | Kanban board - decisions grouped by status, with per-card move/delete actions |
-| `/my-work` | Everything assigned to or owned by you - decisions and action items in one place |
-| `/activity` | Workspace activity feed with event-type filtering |
-| `/ask` | **Ask DecisionOS** - ask your decision history in plain English; grounded, cited answers with clickable sources |
-| `/graph` | Interactive decision graph - force-directed canvas with pan/zoom/drag and edge-type legend |
-| `/reviews` | Workspace-wide reviews hub - overdue, upcoming, recent |
-| `/analytics` | Decision patterns by category - reversal rate and health rate per category |
-| `/tags` | Tag management (admins create/delete; all members apply) |
-| `/team` | Member roster + invite form (admin) |
-| `/settings` | Workspace name and slug settings (admin) |
-| `/settings/templates` | Decision template management - create/edit reusable intake templates (admin) |
-| `/settings/audit` | Workspace security audit log viewer - immutable, filterable trail |
-| `/settings/sso` | OIDC SSO configuration - issuer, client ID/secret, email domain, enforce SSO |
-| `/settings/integrations` | Slack install, Anthropic API key, per-workspace integration config |
-| `/admin` | **Platform staff only** - provider console listing every company; enter, rename, or suspend / reactivate a workspace (see [`docs/PLATFORM_ADMIN.md`](docs/PLATFORM_ADMIN.md)) |
-| `/share/:id` | **Public** read-only view of a workspace-visible decision - no login required |
-| `/api/decisions/export` | Triggers CSV file download of all workspace decisions |
-
----
-
-## Turbopack Compatibility Note
-
-This project targets **Next.js 16.2.x** which ships Turbopack as the default bundler. Turbopack 16.2.x has a known bug: when a shared layout (e.g. the app shell containing the `logout` button) registers a server action, Turbopack can misroute all subsequent server action dispatches on child pages to the layout's action ID instead of the intended action ID.
-
-**Workaround applied in this codebase:** All mutations inside the `(app)` layout tree use plain `fetch()` calls to REST API route handlers (`src/app/api/`). The only remaining server action in the `(app)` layout is `logout` in the sidebar - it is now the *only* action in the tree, eliminating the ID collision. Login and signup pages are outside the `(app)` layout and remain unaffected.
+How it's put together - the layered model, request flows, data model, API reference, and the reasoning behind the architectural choices - lives in the **[architecture docs](docs/architecture/README.md)**.
 
 ---
 
@@ -598,17 +173,19 @@ This project targets **Next.js 16.2.x** which ships Turbopack as the default bun
 
 ## Documentation
 
-Browse the full docs site at **[shafaypro.github.io/DecisionOS](https://shafaypro.github.io/DecisionOS/)** (built from [`docs/`](docs/README.md) with MkDocs). Highlights:
+Everything beyond this page lives on the docs site: **[shafaypro.github.io/DecisionOS](https://shafaypro.github.io/DecisionOS/)** (built from [`docs/`](docs/README.md) with MkDocs).
 
 | Area | Start here |
 |---|---|
-| Setup (Slack, SSO, email, cron) | [docs/SETUP.md](docs/SETUP.md) |
-| Architecture (system + code) | [docs/deployment/ARCHITECTURE.md](docs/deployment/ARCHITECTURE.md), [docs/architecture/](docs/architecture/README.md) |
-| Deployment + CI/CD | [docs/deployment/](docs/deployment/README.md) |
+| Setup (env, Postgres, Slack, SSO, email, cron) | [docs/SETUP.md](docs/SETUP.md) |
+| Architecture overview + auth flow | [docs/architecture/](docs/architecture/README.md) |
+| Data model & field reference | [docs/architecture/data-layer.md](docs/architecture/data-layer.md) |
+| REST API endpoint reference | [docs/architecture/api-layer.md](docs/architecture/api-layer.md) |
+| Pages & frontend layer | [docs/architecture/frontend-layer.md](docs/architecture/frontend-layer.md) |
+| Deployment + CI/CD (Compose, EC2, GCP, ECS, K8s) | [docs/deployment/](docs/deployment/README.md) |
 | Platform admin console | [docs/PLATFORM_ADMIN.md](docs/PLATFORM_ADMIN.md) |
 | GDPR / data protection | [docs/compliance/GDPR.md](docs/compliance/GDPR.md) |
 | SOC 2 control mapping | [docs/compliance/SOC2.md](docs/compliance/SOC2.md) |
-| All docs (index) | [docs/README.md](docs/README.md) |
 
 ---
 
@@ -620,20 +197,13 @@ Contributions are welcome and appreciated 💙 - whether it's a bug report, a do
 2. Make your changes
 3. Run the checks - **all three must pass**:
    ```bash
-   npx tsc --noEmit    # type-check
-   npm run lint         # eslint
+   npm run typecheck    # TypeScript
+   npm run lint         # ESLint
    npm run test:smoke   # zero-dep smoke suite (add one for new pure logic)
    ```
 4. Commit ([Conventional Commits](https://www.conventionalcommits.org/)), push, and open a PR targeting `main`
 
-New here? Look for [**good first issue**](https://github.com/shafaypro/DecisionOS/labels/good%20first%20issue) labels. See the full guide in **[CONTRIBUTING.md](CONTRIBUTING.md)**.
-
-### Community
-
-- 📓 [**CONTRIBUTING.md**](CONTRIBUTING.md) - local setup, conventions, architecture constraints
-- 🤝 [**Code of Conduct**](CODE_OF_CONDUCT.md) - the standards we hold each other to
-- 🔒 [**Security policy**](SECURITY.md) - how to report a vulnerability privately
-- 🐛 [Report a bug](https://github.com/shafaypro/DecisionOS/issues/new?template=bug_report.yml) · 💡 [Request a feature](https://github.com/shafaypro/DecisionOS/issues/new?template=feature_request.yml)
+New here? Look for [**good first issue**](https://github.com/shafaypro/DecisionOS/labels/good%20first%20issue) labels. The full guide - local setup, project structure, scripts, and architecture constraints - is in **[CONTRIBUTING.md](CONTRIBUTING.md)**. Security reports go through the [security policy](SECURITY.md); community standards are in the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
@@ -644,5 +214,5 @@ MIT © [shafaypro](https://github.com/shafaypro)
 ---
 
 <div align="center">
-  <sub>Built with Next.js 16 · Prisma v7 · Tailwind CSS v4 · React 19 · SQLite (libsql)</sub>
+  <sub>Built with Next.js 16 · Prisma v7 · Tailwind CSS v4 · React 19</sub>
 </div>

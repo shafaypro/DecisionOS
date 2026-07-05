@@ -59,6 +59,23 @@ Open [http://localhost:3001](http://localhost:3001) and sign in with `admin@acme
 
 For the full setup guide including Slack, SSO, and deployment, see [`docs/SETUP.md`](docs/SETUP.md).
 
+### Everyday scripts
+
+```bash
+npm run dev          # Start development server (Turbopack, port 3001)
+npm run build        # Production build
+npm run start        # Start production server
+npm run lint         # ESLint check
+npm run typecheck    # TypeScript type check (src)
+npm run typecheck:tests  # TypeScript type check (test suites)
+npm run test:smoke   # Zero-dep smoke tests (pure logic suites)
+npm run test:integration  # Vitest - real route handlers vs DB (tenancy, authz)
+npm test             # Smoke + integration
+npx prisma studio --schema prisma/dev-sqlite.prisma  # Browse the local SQLite data
+npx prisma migrate dev     # Apply pending migrations (Postgres DATABASE_URL only)
+npm run db:reset           # Drop + recreate DB, then reseed (destructive)
+```
+
 ---
 
 ## 3. Project structure

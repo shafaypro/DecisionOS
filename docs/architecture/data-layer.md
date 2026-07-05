@@ -107,3 +107,65 @@ Hot-path `@@index`es were added for cloud scale (cron and list queries previousl
 - Reads are workspace-scoped: queries filter by `session.workspaceId` (enforced in the API layer).
 - Connection pooling: `pg` Pool `max` defaults to 5 per instance; put a pooler (RDS Proxy /
   PgBouncer) in front for high fan-out - see [deploy docs](https://github.com/shafaypro/DecisionOS/blob/main/deploy/aws-ecs/docs/ARCHITECTURE.md).
+
+## Field reference (core models)
+
+### Entity relationship summary
+
+```
+Workspace  ──< WorkspaceMembership >── User
+           ──< Decision
+                  ──< DecisionNote       (userId → User)
+                  ──< DecisionLink       (createdByUserId → User)
+                  ──< DecisionReview     (reviewedByUserId → User)
+                  ──< DecisionTag >── Tag (workspaceId → Workspace)
+                  ──< DecisionEvent      (userId → User, audit log)
+```
+
+### Workspace (selected)
+
+| Field | Type | Description |
+|---|---|---|
+| `status` | String | `active` / `suspended` - lifecycle set by the platform console; suspended workspaces lock out their members (see [Platform admin](../PLATFORM_ADMIN.md)) |
+
+### Decision
+
+| Field | Type | Description |
+|---|---|---|
+| `title` | String | Short decision title (3-200 chars) |
+| `summary` | String| 1-2 sentence description shown in list views (max 500) |
+| `category` | String | `engineering` / `product` / `hiring` / `finance` / `marketing` / `operations` / `strategy` / `other` |
+| `status` | String | `draft` / `in_review` / `approved` / `superseded` / `deprecated` / `reversed` / `archived` |
+| `outcomeStatus` | String| `unknown` / `successful` / `partially_successful` / `unsuccessful` / `reversed` |
+| `impactLevel` | String | `low` / `medium` / `high` / `critical` |
+| `visibility` | String | `workspace` (all members) / `private` (creator only) |
+| `ownerUserId` | String| Responsible person (FK → User) |
+| `problemStatement` | String| What problem prompted this decision? |
+| `chosenOption` | String| What specific option was selected? |
+| `rationale` | String| Why was this option chosen? |
+| `alternativesConsidered` | String| What other options were evaluated? |
+| `assumptions` | String| Conditions that must hold for this to work |
+| `risks` | String| Known failure modes and downsides |
+| `decisionDate` | DateTime | When the decision was made |
+| `reviewDate` | DateTime | When to revisit the decision |
+| `reviewedAt` | DateTime | When the first review was submitted |
+
+### Tag
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | String | Tag label (unique per workspace, max 50 chars) |
+| `color` | String| Hex colour (e.g. `#6366f1`) used for badge rendering |
+
+### DecisionReview
+
+| Field | Type | Description |
+|---|---|---|
+| `outcomeStatus` | String | `successful` / `partially_successful` / `unsuccessful` / `reversed` |
+| `summary` | String| What actually happened |
+| `lessonsLearned` | String| What would you do differently? |
+| `followUpAction` | String| Follow-on decisions or actions required |
+
+### DecisionEvent types (audit log)
+
+`created` · `updated` · `status_changed` · `note_added` · `link_added` · `reviewed`
