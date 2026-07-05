@@ -5,23 +5,21 @@ Prisma v7 with **driver adapters**. The client is generated into `src/generated/
 
 ## Client construction & adapter selection
 
-```
-            getDatabaseUrl()  (src/lib/env.ts)
-                    │
-                    ▼
-   src/lib/prisma.ts  createPrismaClient()
-                    │
-       ┌────────────┴─────────────┐
-   postgres:// or                 file:  /  libsql://
-   postgresql://                       │
-       │                               │
-       ▼                               ▼
-   pg Pool (max=DATABASE_POOL_MAX)   PrismaLibSql adapter
-   + PrismaPg adapter
-       │                               │
-       └──────────► new PrismaClient({ adapter }) ◄──────┘
-                    │
-   singleton on globalThis (one client per process; reused on dev hot-reload)
+```mermaid
+flowchart TB
+  env["getDatabaseUrl()<br/>src/lib/env.ts"] --> factory["src/lib/prisma.ts<br/>createPrismaClient()"]
+  factory -->|"postgres:// · postgresql://"| pg["pg Pool (max = DATABASE_POOL_MAX)<br/>+ PrismaPg adapter"]
+  factory -->|"file: · libsql://"| libsql["PrismaLibSql adapter"]
+  pg --> client["new PrismaClient({ adapter })"]
+  libsql --> client
+  client --> singleton["singleton on globalThis<br/>one client per process · reused on dev hot-reload"]
+
+  classDef cfg fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
+  classDef adapter fill:#fef3c7,stroke:#d97706,color:#78350f;
+  classDef out fill:#f3e8ff,stroke:#9333ea,color:#581c87;
+  class env,factory cfg;
+  class pg,libsql adapter;
+  class client,singleton out;
 ```
 
 ```ts
@@ -59,18 +57,32 @@ Consequences (and how the repo handles it):
 
 23 models. Core graph:
 
-```
-Workspace 1───* WorkspaceMembership *───1 User
-   │                                        │
-   ├─* Decision ──* DecisionNote ─* NoteReply
-   │     ├─* DecisionReview   ├─* DecisionLink
-   │     ├─* DecisionEvent (audit)  ├─* DecisionVersion (snapshots)
-   │     ├─* DecisionRelation (graph edges)  ├─* DecisionReaction
-   │     └─* DecisionTag *─1 Tag
-   ├─* ActionItem        ├─* DecisionTemplate
-   ├─* WorkspaceIntegration (encrypted config)
-   ├─ SlackWorkspaceLink   ├─ WorkspaceSsoConfig
-   └─* InAppNotification / AnalyticsEvent / NotificationLog
+```mermaid
+erDiagram
+  Workspace ||--o{ WorkspaceMembership : has
+  User ||--o{ WorkspaceMembership : holds
+  Workspace ||--o{ Decision : contains
+
+  Decision ||--o{ DecisionNote : notes
+  DecisionNote ||--o{ NoteReply : replies
+  Decision ||--o{ DecisionLink : links
+  Decision ||--o{ DecisionReview : reviews
+  Decision ||--o{ DecisionEvent : "audit events"
+  Decision ||--o{ DecisionVersion : snapshots
+  Decision ||--o{ DecisionRelation : "graph edges"
+  Decision ||--o{ DecisionReaction : reactions
+  Decision ||--o{ DecisionTag : tagged
+  Tag ||--o{ DecisionTag : applies
+
+  Workspace ||--o{ Tag : defines
+  Workspace ||--o{ ActionItem : tracks
+  Workspace ||--o{ DecisionTemplate : offers
+  Workspace ||--o{ WorkspaceIntegration : "encrypted config"
+  Workspace ||--o| SlackWorkspaceLink : "slack link"
+  Workspace ||--o| WorkspaceSsoConfig : "sso config"
+  Workspace ||--o{ InAppNotification : notifies
+  Workspace ||--o{ AnalyticsEvent : records
+  Workspace ||--o{ NotificationLog : logs
 ```
 
 Modeling notes:
@@ -110,17 +122,8 @@ Hot-path `@@index`es were added for cloud scale (cron and list queries previousl
 
 ## Field reference (core models)
 
-### Entity relationship summary
-
-```
-Workspace  ──< WorkspaceMembership >── User
-           ──< Decision
-                  ──< DecisionNote       (userId → User)
-                  ──< DecisionLink       (createdByUserId → User)
-                  ──< DecisionReview     (reviewedByUserId → User)
-                  ──< DecisionTag >── Tag (workspaceId → Workspace)
-                  ──< DecisionEvent      (userId → User, audit log)
-```
+How the models relate is shown in the [core graph above](#schema--models---prismaschemaprisma);
+this section lists the fields that matter most per model.
 
 ### Workspace (selected)
 

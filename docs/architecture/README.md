@@ -16,29 +16,40 @@ For deployment/infra architecture (AWS ECS), see [`deploy/aws-ecs/docs/`](https:
 
 ## The layered model
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│ FRONTEND   src/app/(app)/**/page.tsx  +  src/components/**            │
-│ React Server Components render data; client components handle input.  │
-└───────────────┬───────────────────────────────────┬──────────────────┘
-        reads   │ (RSC call getSession + prisma)     │ writes (fetch)
-                │                                     ▼
-                │                    ┌─────────────────────────────────┐
-                │                    │ API LAYER   src/app/api/**/route │
-                │                    │ REST handlers - ALL mutations.   │
-                │                    │ session + role check → validate  │
-                │                    └───────────────┬─────────────────┘
-                ▼                                     ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ BUSINESS LOGIC & INFRA   src/lib/**                                   │
-│ pure logic (health, similarity, graph) · session/crypto/env           │
-│ · rate-limit · logger · integrations (slack, sso, email)              │
-└───────────────────────────────────┬───────────────────────────────────┘
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ DATA LAYER   src/lib/prisma.ts + prisma/                              │
-│ Prisma v7 client + driver adapter → PostgreSQL (prod) / SQLite (note) │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+  subgraph fe["FRONTEND · src/app/(app)/**/page.tsx + src/components/**"]
+    rsc["React Server Components<br/>render data"]
+    cc["Client components<br/>handle input"]
+  end
+
+  subgraph api["API LAYER · src/app/api/**/route.ts"]
+    handlers["REST handlers - ALL mutations<br/>session + role check → validate → scope"]
+  end
+
+  subgraph lib["BUSINESS LOGIC & INFRA · src/lib/**"]
+    pure["Pure logic<br/>health · similarity · graph"]
+    infra["Infrastructure<br/>session · crypto · env · rate-limit · logger"]
+    integ["Integrations<br/>slack · sso · email · anthropic"]
+  end
+
+  subgraph data["DATA LAYER · src/lib/prisma.ts + prisma/"]
+    prisma["Prisma v7 client + driver adapter<br/>PostgreSQL (prod) / SQLite (dev)"]
+  end
+
+  rsc -->|"reads · getSession + prisma"| lib
+  cc -->|"writes · fetch()"| handlers
+  handlers --> lib
+  lib --> prisma
+
+  classDef feStyle fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
+  classDef apiStyle fill:#fef3c7,stroke:#d97706,color:#78350f;
+  classDef libStyle fill:#dcfce7,stroke:#16a34a,color:#14532d;
+  classDef dataStyle fill:#f3e8ff,stroke:#9333ea,color:#581c87;
+  class rsc,cc feStyle;
+  class handlers apiStyle;
+  class pure,infra,integ libStyle;
+  class prisma dataStyle;
 ```
 
 **The golden rule (enforced by a real Turbopack bug):** state-changing work goes
@@ -52,57 +63,84 @@ See [CONTRIBUTING.md → Architecture constraints](https://github.com/shafaypro/
 
 ### A. Loading a protected page (read path)
 
+```mermaid
+sequenceDiagram
+  autonumber
+  actor B as Browser
+  participant P as src/proxy.ts<br/>(auth guard)
+  participant R as decisions/page.tsx<br/>(Server Component)
+  participant DB as Prisma
+
+  B->>P: GET /decisions
+  alt no valid session
+    P-->>B: redirect /login
+  else session ok
+    P->>R: continue
+    R->>R: getSession() → { userId, workspaceId, role }
+    R->>DB: decision.findMany({ where: { workspaceId } })
+    DB-->>R: rows
+    R-->>B: HTML streamed (no client JS needed for the data)
+  end
 ```
-Browser GET /decisions
-   │
-   ▼
-src/proxy.ts  ──(no session)──▶ redirect /login
-   │ (Next.js 16 auth guard - NOT middleware.ts)
-   ▼ session ok
-src/app/(app)/decisions/page.tsx   ← React Server Component
-   │  getSession()  → SessionPayload (userId, workspaceId, role)
-   │  prisma.decision.findMany({ where: { workspaceId } })
-   ▼
-HTML streamed to the browser (no client JS needed for the data)
-```
+
+The guard is `src/proxy.ts` - the Next.js 16 convention, **not** `middleware.ts`.
 
 ### B. Creating / changing data (write path)
 
-```
-Client component (e.g. decision-form.tsx)
-   │  fetch("/api/decisions", { method: "POST", body })
-   ▼
-src/app/api/decisions/route.ts
-   │  1. getSession()                      → 401 if missing
-   │  2. auth-guards: isViewer/isAdmin     → 403 if not allowed
-   │  3. validate + normalize the body
-   │  4. workspace-scope the resource      → 404 if cross-workspace
-   │  5. prisma.$transaction([...])        → write + audit event atomically
-   │  6. track(...) analytics (fire-and-forget)
-   ▼
-JSON response → client refreshes / router.refresh()
+```mermaid
+sequenceDiagram
+  autonumber
+  participant C as Client component<br/>(decision-form.tsx)
+  participant H as api/decisions/route.ts<br/>(withApi)
+  participant DB as Prisma
+
+  C->>H: fetch POST /api/decisions { body }
+  Note over H: 1 getSession() → 401 if missing<br/>2 role check (viewer/admin) → 403<br/>3 revalidate live membership → 401/403<br/>4 Zod-validate the body → 400<br/>5 workspace-scope the resource → 404
+  H->>DB: $transaction([ write + audit event ])
+  DB-->>H: committed atomically
+  H--)H: track() analytics (fire-and-forget)
+  H-->>C: JSON response
+  C->>C: router.refresh()
 ```
 
 ### C. Inbound webhook / integration (no user session)
 
-```
-Slack  ──POST──▶  src/app/api/slack/...
-   │  verify HMAC signature + timestamp (replay window)   ← lib/slack/verify
-   │  decrypt stored bot/secret (lib/crypto)              ← AES-256-GCM
-   │  prisma writes + best-effort outbound calls
-   ▼
-200 quickly (Slack's 3s deadline) - outbound work is fire-and-forget
+```mermaid
+sequenceDiagram
+  autonumber
+  participant S as Slack
+  participant W as api/slack/*<br/>route handlers
+  participant DB as Prisma
+
+  S->>W: POST (slash command / event)
+  W->>W: verify HMAC + timestamp replay window (lib/slack/verify)
+  W->>W: decrypt stored bot secret (lib/crypto · AES-256-GCM)
+  W->>DB: writes
+  W-->>S: 200 quickly (Slack's 3s deadline)
+  W--)W: outbound calls are fire-and-forget
 ```
 
 ### D. Scheduled job
 
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Cr as Scheduler<br/>(Vercel cron / EventBridge)
+  participant J as /api/cron/*<br/>review-reminders · weekly-digest
+  participant DB as Prisma
+
+  Cr->>J: GET/POST · Authorization: Bearer CRON_SECRET
+  alt bad or missing secret
+    J-->>Cr: 401 (fails closed in production)
+  else authorized
+    J->>DB: query due decisions
+    J--)J: send email / Slack DMs
+    J->>DB: write NotificationLog
+    J-->>Cr: 200 + summary
+  end
 ```
-Scheduler ──GET/POST──▶ /api/cron/{review-reminders,weekly-digest}
-   │  Authorization: Bearer <CRON_SECRET>     ← rejected otherwise
-   │  query due decisions → send email/Slack → write NotificationLog
-   ▼
-On Vercel: vercel.json crons. On ECS: EventBridge (deploy/aws-ecs/optional-scheduled-jobs.tf).
-```
+
+On Vercel: `vercel.json` crons. On ECS: EventBridge (`deploy/aws-ecs/optional-scheduled-jobs.tf`).
 
 ---
 
@@ -123,22 +161,34 @@ On Vercel: vercel.json crons. On ECS: EventBridge (deploy/aws-ecs/optional-sched
 
 ## Authentication flow
 
-```
-POST /login  (server action)
-  → bcrypt.compare(password, user.passwordHash)
-  → createSession({ userId, workspaceId, role, email, name })
-      → jose.EncryptJWT(...).encrypt(key derived from SESSION_SECRET)   # JWE, A256GCM
-      → Set-Cookie: session=<jwe>; HttpOnly; SameSite=Lax; Path=/
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant L as /login<br/>(server action)
+  participant S as lib/session.ts
+  participant P as src/proxy.ts
+  participant A as API routes<br/>(withApi)
 
-Every page request
-  → proxy.ts intercepts
-  → decrypt(cookie) → if no valid session → redirect /login
-  → if session + public route → redirect /dashboard
+  U->>L: POST credentials
+  L->>L: bcrypt.compare(password, passwordHash)
+  L->>S: createSession({ userId, workspaceId, role, email, name })
+  S-->>U: Set-Cookie session=JWE (A256GCM) · HttpOnly · SameSite=Lax
 
-API routes
-  → getSession() → decrypt cookie → session payload
-  → withApi: role check → revalidate live membership + workspace status (30s cache)
-  → handlers scope every query by session.workspaceId
+  Note over U,P: every page request
+  U->>P: GET /any-page
+  P->>P: decrypt cookie
+  alt no valid session
+    P-->>U: redirect /login
+  else session + public route
+    P-->>U: redirect /dashboard
+  end
+
+  Note over U,A: every API request
+  U->>A: fetch /api/*
+  A->>A: getSession() → payload
+  A->>A: role check → revalidate live membership + workspace status (30s cache)
+  A->>A: scope every query by session.workspaceId
 ```
 
 Session payload shape:
