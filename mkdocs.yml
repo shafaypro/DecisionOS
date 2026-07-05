@@ -54,9 +54,14 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
 
 # Keep internal working notes and the GitHub-only docs map out of the site.
+# The leading slash anchors the pattern to the docs root, so ONLY docs/README.md
+# is excluded. A bare "README.md" also matched architecture/README.md and
+# deployment/README.md - the section "Overview" pages the nav links to - which
+# dropped them from the built site and left those nav entries pointing at
+# nonexistent pages.
 exclude_docs: |
   internal/
-  README.md
+  /README.md
 
 nav:
   - Home: index.md

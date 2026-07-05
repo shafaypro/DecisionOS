@@ -10,7 +10,7 @@ Each layer has its own deep-dive:
 | Business logic & infrastructure | [business-logic-layer.md](business-logic-layer.md) | `src/lib`, `src/actions` |
 | Data (Prisma + DB) | [data-layer.md](data-layer.md) | `src/lib/prisma.ts`, `prisma/` |
 
-For deployment/infra architecture (AWS ECS), see [`deploy/aws-ecs/docs/`](../../deploy/aws-ecs/docs/ARCHITECTURE.md).
+For deployment/infra architecture (AWS ECS), see [`deploy/aws-ecs/docs/`](https://github.com/shafaypro/DecisionOS/blob/main/deploy/aws-ecs/docs/ARCHITECTURE.md).
 
 ---
 
@@ -44,7 +44,7 @@ For deployment/infra architecture (AWS ECS), see [`deploy/aws-ecs/docs/`](../../
 **The golden rule (enforced by a real Turbopack bug):** state-changing work goes
 through the **API layer**, never server actions inside `src/app/(app)/`. The only
 server actions are auth (`src/actions/auth.ts`), which live outside the app layout.
-See [CONTRIBUTING.md → Architecture constraints](../../CONTRIBUTING.md#4-architecture-constraints).
+See [CONTRIBUTING.md → Architecture constraints](https://github.com/shafaypro/DecisionOS/blob/main/CONTRIBUTING.md#4-architecture-constraints).
 
 ---
 

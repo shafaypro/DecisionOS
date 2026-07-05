@@ -1,18 +1,21 @@
 name: Docs
 
 # Build the MkDocs (Material) site from docs/ and publish it to GitHub Pages.
-# Enable once under Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
+# The build job below calls actions/configure-pages with enablement:true, which
+# turns Pages on and sets the source to "GitHub Actions" automatically - so no
+# manual Settings step is needed. (If org policy blocks programmatic enablement,
+# set it once under Settings -> Pages -> Build and deployment -> Source: GitHub
+# Actions.)
 on:
   push:
     branches: [main]
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      - "requirements-docs.txt"
       - ".github/workflows/docs.yml"
   workflow_dispatch: {}
 
-# Least privilege: the build job only reads the repo; the Pages scopes are
-# granted to the deploy job alone.
 permissions:
   contents: read
 
@@ -23,13 +26,25 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Pages scopes are needed here (not just in deploy) so configure-pages can
+    # enable Pages with build_type=workflow on the very first run.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Enable GitHub Pages (source = GitHub Actions)
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - run: pip install -r requirements-docs.txt
-      - run: mkdocs build
+      # --strict fails the build on broken links / nav drift, matching the
+      # "keep mkdocs build warning-free" policy in requirements-docs.txt.
+      - run: mkdocs build --strict
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
