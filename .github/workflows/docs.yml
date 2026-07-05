@@ -1,10 +1,10 @@
 name: Docs
 
 # Build the MkDocs (Material) site from docs/ and publish it to GitHub Pages.
-# The build job below calls actions/configure-pages with enablement:true, which
-# turns Pages on and sets the source to "GitHub Actions" automatically - so no
-# manual Settings step is needed. (If org policy blocks programmatic enablement,
-# set it once under Settings -> Pages -> Build and deployment -> Source: GitHub
+# The build job creates the Pages site if absent (configure-pages) and forces
+# the source to "GitHub Actions" via the API (see the build_type step) - so no
+# manual Settings step is needed. (If org policy blocks the API call, set it
+# once under Settings -> Pages -> Build and deployment -> Source: GitHub
 # Actions.)
 on:
   push:
@@ -41,6 +41,29 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+      # configure-pages `enablement` only CREATES a Pages site - it does not
+      # flip an existing site off "Deploy from a branch". In branch mode GitHub
+      # runs its built-in Jekyll build on every push to main, which re-publishes
+      # the raw README over the MkDocs site (this happened: the site deployed
+      # fine, then the next app-only merge overwrote it). Force build_type to
+      # "workflow" via the API so the Jekyll build stops for good. Idempotent -
+      # a no-op once the source is already GitHub Actions.
+      - name: Force Pages build_type to "workflow" (stop the legacy Jekyll build)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          status=$(curl -sS -o /tmp/pages.json -w "%{http_code}" -X PUT \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages" \
+            -d '{"build_type":"workflow"}')
+          echo "PUT /pages -> HTTP $status"
+          cat /tmp/pages.json
+          # 204 = updated. Anything else: keep going (deploy still works) but
+          # surface it loudly so the settings flip can be done by hand.
+          if [ "$status" != "204" ]; then
+            echo "::warning::Could not set Pages source to GitHub Actions (HTTP $status). Set it manually: Settings -> Pages -> Source: GitHub Actions."
+          fi
       - run: pip install -r requirements-docs.txt
       # --strict fails the build on broken links / nav drift, matching the
       # "keep mkdocs build warning-free" policy in requirements-docs.txt.
