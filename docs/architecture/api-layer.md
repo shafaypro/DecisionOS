@@ -6,26 +6,38 @@ files, grouped by resource.
 
 ## Request lifecycle
 
-```
-fetch("/api/<resource>", { method, body })
-        │
-        ▼  (the proxy.ts guard has already run for page navigations; API routes
-        │   re-check the session themselves since they're hit directly too)
-┌────────────────────────────────────────────────────────────┐
-│ route handler  (GET/POST/PATCH/DELETE)                     │
-│                                                            │
-│  1. AUTHN   const session = await getSession()             │  → 401 if null
-│  2. AUTHZ   isViewer(session.role) / isAdmin(...)          │  → 403 if not allowed
-│  3. PARSE   const body = await req.json(); normalize/trim  │  → 400 on bad input
-│  4. SCOPE   load resource, assert workspaceId matches      │  → 404 if cross-workspace
-│  5. WRITE   prisma.$transaction([... + audit event])      │
-│  6. SIDE    track(...) analytics, fire-and-forget          │
-│  7. RETURN  NextResponse.json({...}, { status })          │
-└────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+  req["fetch('/api/&lt;resource&gt;', { method, body })"] --> authn
+
+  subgraph handler["route handler (GET/POST/PATCH/DELETE)"]
+    direction TB
+    authn["1 · AUTHN<br/>getSession()"] --> authz["2 · AUTHZ<br/>role check (viewer / admin)"]
+    authz --> reval["3 · REVALIDATE<br/>live membership + workspace status"]
+    reval --> parse["4 · PARSE<br/>Zod-validate the body"]
+    parse --> scope["5 · SCOPE<br/>assert resource.workspaceId matches"]
+    scope --> write["6 · WRITE<br/>prisma.$transaction([... + audit event])"]
+    write --> side["7 · SIDE<br/>track() analytics · fire-and-forget"]
+    side --> ret["8 · RETURN<br/>NextResponse.json({...}, { status })"]
+  end
+
+  authn -.->|no session| e401["401"]
+  authz -.->|not allowed| e403["403"]
+  reval -.->|revoked / suspended| e401b["401 / 403"]
+  parse -.->|bad input| e400["400"]
+  scope -.->|cross-workspace| e404["404"]
+
+  classDef step fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
+  classDef err fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+  class authn,authz,reval,parse,scope,write,side,ret step;
+  class e401,e403,e401b,e400,e404 err;
 ```
 
-Steps 1-4 are the same opening lines in almost every handler - see
-[reuse opportunity](#known-rough-edges-improvement-backlog) below.
+The proxy.ts guard has already run for page navigations; API routes re-check the
+session themselves since they're hit directly too. Steps 1-5 are centralized in
+`withApi` (`src/lib/api-handler.ts`) - see
+[known rough edges](#known-rough-edges-improvement-backlog) for the handful of
+older routes that still hand-roll them.
 
 ## The standard handler shape
 

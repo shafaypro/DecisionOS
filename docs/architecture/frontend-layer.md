@@ -23,16 +23,20 @@ src/app/
 
 ## Server vs client components
 
-```
-page.tsx  (Server Component, default)
-   │  await getSession();  await prisma.<model>.findMany({ where:{ workspaceId } })
-   │  → renders data to HTML on the server (no client JS for reads)
-   │
-   └─ renders ─▶  <DecisionForm/>, <CommandPalette/>, <DecisionGraphCanvas/>  ("use client")
-                     │  local state, keyboard, canvas, dialogs
-                     │  on submit: fetch("/api/...", { method })  ──▶ API layer
-                     ▼
-                  router.refresh()  → server re-renders with fresh data
+```mermaid
+flowchart TB
+  page["page.tsx · Server Component (default)<br/>getSession() + prisma.findMany({ where: { workspaceId } })<br/>renders data to HTML on the server - no client JS for reads"]
+  client["&lt;DecisionForm/&gt; · &lt;CommandPalette/&gt; · &lt;DecisionGraphCanvas/&gt;<br/>('use client') · local state · keyboard · canvas · dialogs"]
+  api["API layer<br/>fetch('/api/...', { method })"]
+
+  page -->|renders| client
+  client -->|on submit| api
+  api -.->|"router.refresh() · server re-renders with fresh data"| page
+
+  classDef server fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
+  classDef clientStyle fill:#fef3c7,stroke:#d97706,color:#78350f;
+  class page server;
+  class client,api clientStyle;
 ```
 
 - **Reads** happen in Server Components, which query Prisma directly - fast, no client
@@ -63,12 +67,21 @@ in `ui/logo`. Tailwind utility classes are preferred over custom CSS. Loading st
 
 ## Data flow summary
 
-```
-Server Component  ──reads──▶  Prisma  ──▶  rendered HTML
-       │
-       └─ hydrates ─▶  Client Component  ──writes (fetch)──▶  /api/*  ──▶  Prisma
-                                              │
-                                       router.refresh() ─▶ Server Component re-renders
+```mermaid
+flowchart LR
+  sc["Server Component"] -->|reads| p1["Prisma"]
+  p1 --> html["rendered HTML"]
+  sc -->|hydrates| cc["Client Component"]
+  cc -->|"writes · fetch()"| api["/api/*"]
+  api --> p2["Prisma"]
+  cc -.->|"router.refresh() · re-render"| sc
+
+  classDef server fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
+  classDef client fill:#fef3c7,stroke:#d97706,color:#78350f;
+  classDef data fill:#f3e8ff,stroke:#9333ea,color:#581c87;
+  class sc,html server;
+  class cc,api client;
+  class p1,p2 data;
 ```
 
 This split keeps the read path cheap (server-rendered, no API hop) while routing every

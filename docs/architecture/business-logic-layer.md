@@ -4,17 +4,30 @@ Everything the API and frontend layers depend on but that isn't a route or a com
 Three kinds of module live here: **pure business logic**, **infrastructure**, and
 **external integrations**. Named exports only (no default exports) for tree-shaking.
 
-```
-            API routes / RSC pages / components
-                          │ import
-   ┌──────────────────────┼───────────────────────────────┐
-   ▼                      ▼                                ▼
-PURE LOGIC          INFRASTRUCTURE                 INTEGRATIONS
-(no I/O)            (I/O, cross-cutting)           (external APIs)
-decision-health    session  env   prisma          slack/*  sso
-similarity         crypto   logger rate-limit      email    anthropic
-graph-layout       auth-guards     analytics
-                   review-token    utils
+```mermaid
+flowchart TB
+  callers["API routes · RSC pages · components"]
+
+  callers -->|import| pure
+  callers -->|import| infra
+  callers -->|import| integ
+
+  subgraph pure["PURE LOGIC · no I/O"]
+    p1["decision-health<br/>similarity<br/>graph-layout<br/>auth-guards · utils"]
+  end
+  subgraph infra["INFRASTRUCTURE · I/O, cross-cutting"]
+    i1["session · env · prisma<br/>crypto · logger · rate-limit<br/>review-token · analytics"]
+  end
+  subgraph integ["INTEGRATIONS · external APIs"]
+    x1["slack/* · sso<br/>email · anthropic"]
+  end
+
+  classDef pureStyle fill:#dcfce7,stroke:#16a34a,color:#14532d;
+  classDef infraStyle fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
+  classDef integStyle fill:#fef3c7,stroke:#d97706,color:#78350f;
+  class p1 pureStyle;
+  class i1 infraStyle;
+  class x1 integStyle;
 ```
 
 ## Pure business logic (no I/O - unit-tested in `tests/smoke/`)
