@@ -47,3 +47,12 @@ Every push and pull request to `main` (and a weekly scheduled sweep) runs:
 A gitleaks finding fails the build - never commit a real secret, even temporarily.
 Configuration secrets are provided via environment variables (see `.env.example`)
 and, in production, a secrets manager; they are never committed.
+
+## Known advisories accepted as not-applicable
+
+Some advisories have no upstream fix and do not affect the shipped application.
+These are dismissed in Dependabot with a documented reason rather than patched:
+
+| Advisory | Where | Why it's accepted |
+| --- | --- | --- |
+| `elliptic` – "uses a cryptographic primitive with a risky implementation" (low) | dev-only, transitive via `@storybook/nextjs` → `node-polyfill-webpack-plugin` → `crypto-browserify` | Storybook **build-time** tooling only. It is never imported by the Next.js app, never in the production bundle, and never in the published Docker image. No `elliptic` release fixes the advisory (it covers all versions), and the latest `@storybook/nextjs` still pulls the same chain, so there is nothing to bump to. `npm audit` classifies it **low**; the CI `npm audit` gate is high+, so it does not block builds. Re-evaluate if Storybook drops the polyfill dependency. |

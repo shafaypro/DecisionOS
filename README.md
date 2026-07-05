@@ -41,6 +41,27 @@ Most teams make hundreds of decisions per quarter - and forget 90% of them withi
 
 ---
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Data Model](#data-model)
+- [REST API Reference](#rest-api-reference)
+- [Authentication Flow](#authentication-flow)
+- [Getting Started](#getting-started)
+- [Demo](#demo)
+- [Available Scripts](#available-scripts)
+- [Key Pages](#key-pages)
+- [Roadmap](#roadmap)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 ## Screenshots
 
 > Captured live from a running instance with the seeded demo workspace (`admin@acme.demo`).

@@ -46,7 +46,7 @@ Every push and pull request runs **GitHub Actions**:
    `migrate` one-shot runs `prisma migrate deploy` before the app starts, so the
    schema is always current. Nothing builds on the host.
 
-The workflows live in [`.github/workflows/`](../../.github/workflows/). On a public
+The workflows live in [`.github/workflows/`](https://github.com/shafaypro/DecisionOS/tree/main/.github/workflows). On a public
 repo, GitHub Actions minutes are free.
 
 ### 2. Runtime (the EC2 box)

@@ -2,7 +2,7 @@
 
 Choose a deployment target based on your team size, budget, and operational preference. This page compares the targets; the detailed walkthroughs below cover the live setup end to end.
 
-> **CI/CD.** DecisionOS builds and tests on **GitHub Actions** ([`ci.yml`](../../.github/workflows/ci.yml) gates every PR; [`release-images.yml`](../../.github/workflows/release-images.yml) publishes images to **GHCR** when a release is published). Deploy targets then pull those images. **Docker Compose** and **AWS EC2** are the best-trodden self-host paths; **GCP Free-Tier**, **AWS ECS Fargate**, and **Kubernetes** are community-supported references - complete as written, but verify before relying on them in production.
+> **CI/CD.** DecisionOS builds and tests on **GitHub Actions** ([`ci.yml`](https://github.com/shafaypro/DecisionOS/blob/main/.github/workflows/ci.yml) gates every PR; [`release-images.yml`](https://github.com/shafaypro/DecisionOS/blob/main/.github/workflows/release-images.yml) publishes images to **GHCR** when a release is published). Deploy targets then pull those images. **Docker Compose** and **AWS EC2** are the best-trodden self-host paths; **GCP Free-Tier**, **AWS ECS Fargate**, and **Kubernetes** are community-supported references - complete as written, but verify before relying on them in production.
 
 ## Guides in this folder
 
@@ -58,7 +58,7 @@ docker compose up -d
 curl https://your-domain.com/api/seed   # initial data
 ```
 
-See [`deploy/docker-compose/README.md`](../../deploy/docker-compose/README.md) for full setup.
+See [`deploy/docker-compose/README.md`](https://github.com/shafaypro/DecisionOS/blob/main/deploy/docker-compose/README.md) for full setup.
 
 **When to choose:** You have your own server (VPS, homelab, on-prem) and want a simple,
 self-contained deployment with no cloud vendor dependency.
@@ -77,7 +77,7 @@ cp terraform.tfvars.example terraform.tfvars   # edit
 terraform init && terraform apply
 ```
 
-See [`deploy/aws-ec2/README.md`](../../deploy/aws-ec2/README.md) for full setup.
+See [`deploy/aws-ec2/README.md`](https://github.com/shafaypro/DecisionOS/blob/main/deploy/aws-ec2/README.md) for full setup.
 
 **When to choose:** Small team on AWS, want managed infrastructure (Terraform) but don't
 need the complexity of ECS/RDS. Budget-friendly at ~$8-15/mo.
@@ -90,7 +90,7 @@ need the complexity of ECS/RDS. Budget-friendly at ~$8-15/mo.
 
 Architecture: Compute Engine VM + persistent disk + SQLite + Caddy.
 
-See [`deploy/gcp/free-tier/README.md`](../../deploy/gcp/free-tier/README.md) for the infra, and [GCP.md](GCP.md) for the full step-by-step walkthrough.
+See [`deploy/gcp/free-tier/README.md`](https://github.com/shafaypro/DecisionOS/blob/main/deploy/gcp/free-tier/README.md) for the infra, and [GCP.md](GCP.md) for the full step-by-step walkthrough.
 
 **When to choose:** Zero-cost MVP or demo. Limited to SQLite (no Redis, no horizontal scaling).
 
@@ -102,7 +102,7 @@ See [`deploy/gcp/free-tier/README.md`](../../deploy/gcp/free-tier/README.md) for
 
 Architecture: ALB + ECS Fargate + RDS Postgres + ElastiCache Redis + Secrets Manager + CloudWatch.
 
-See [`deploy/aws-ecs/README.md`](../../deploy/aws-ecs/README.md).
+See [`deploy/aws-ecs/README.md`](https://github.com/shafaypro/DecisionOS/blob/main/deploy/aws-ecs/README.md).
 
 **When to choose:** Production workload on AWS. Managed scaling, managed database,
 managed caching. Supports multi-AZ for high availability.
@@ -124,7 +124,7 @@ kubectl apply -k base/
 kubectl apply -k overlays/production/
 ```
 
-See [`deploy/kubernetes/README.md`](../../deploy/kubernetes/README.md).
+See [`deploy/kubernetes/README.md`](https://github.com/shafaypro/DecisionOS/blob/main/deploy/kubernetes/README.md).
 
 **When to choose:** You already run Kubernetes (EKS, GKE, AKS, k3s, etc.) and want
 DecisionOS to fit into your existing cluster with standard K8s patterns.

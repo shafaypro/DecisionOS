@@ -5,7 +5,7 @@ This guide explains how to deploy DecisionOS to Google Cloud using the included 
 > **Deploying to AWS instead?** See the [AWS EC2 runbook](AWS_EC2_DEPLOYMENT_RUNBOOK.md)
 > (single free-tier `t3.micro`, Postgres + Redis + Caddy via Docker Compose), including the
 > off-box GHCR image-build flow so the instance never builds. Other targets live under
-> [`deploy/`](../../deploy) (`aws-ecs`, `kubernetes`, `docker-compose`).
+> [`deploy/`](https://github.com/shafaypro/DecisionOS/tree/main/deploy) (`aws-ecs`, `kubernetes`, `docker-compose`).
 
 The current recommended target is:
 
