@@ -91,10 +91,84 @@ export async function POST(req: NextRequest) {
 
 ## Known rough edges (improvement backlog)
 
-- Steps 1-4 are duplicated ~40×; a `requireSession(role?)` /
-  `requireWorkspaceResource()` helper would collapse them (tracked as a follow-up).
-- No shared validation schema (Zod) yet - validation lives inline per route.
+- Most routes now go through `withApi` (`src/lib/api-handler.ts`), which centralizes
+  session → role → live-membership revalidation → Zod body validation; a handful of
+  older routes (`decisions/search`, `decisions/ai-draft`, the Slack/SSO callbacks)
+  still hand-roll the pipeline.
+- Shared Zod schemas live in `src/lib/schemas.ts`; a few write routes still validate inline.
 - Response envelopes vary (`{ success: true }` vs `{ items }` vs `{ decisions }`).
+
+## Endpoint reference
+
+All routes require a valid session cookie (`session`) except `/api/seed`, the auth/SSO
+flows, and the public share page.
+
+### Decisions
+
+| Method | Route | Auth | Body / Params | Description |
+|---|---|---|---|---|
+| `POST` | `/api/decisions` | member | Decision fields (JSON) | Create a new decision |
+| `PUT` | `/api/decisions/:id` | member | Decision fields (JSON) | Update an existing decision |
+| `POST` | `/api/decisions/archive` | owner or admin | `{ decisionId }` | Archive a decision (sets status = `archived`) |
+| `POST` | `/api/decisions/ask` | any member | `{ question }` | Ask a natural-language question; returns a grounded, cited answer + ranked source decisions (degrades to semantic search with no AI key) |
+| `GET` | `/api/decisions/export` | member | - | Download all workspace decisions as CSV |
+
+### Notes
+
+| Method | Route | Auth | Body | Description |
+|---|---|---|---|---|
+| `POST` | `/api/decisions/notes` | member | `{ decisionId, content }` | Add a note to a decision |
+| `DELETE` | `/api/decisions/notes` | owner or admin | `{ noteId }` | Delete a note |
+
+### Links
+
+| Method | Route | Auth | Body | Description |
+|---|---|---|---|---|
+| `POST` | `/api/decisions/links` | member | `{ decisionId, label, url, linkType }` | Add a resource link |
+| `DELETE` | `/api/decisions/links` | owner or admin | `{ linkId }` | Remove a link |
+
+Link types: `rfc` · `pr` · `adr` · `doc` · `article` · `ticket` · `other`
+
+### Reviews
+
+| Method | Route | Auth | Body | Description |
+|---|---|---|---|---|
+| `POST` | `/api/decisions/reviews` | member | `{ decisionId, outcomeStatus, summary?, lessonsLearned?, followUpAction? }` | Submit an outcome review |
+
+### Tags
+
+| Method | Route | Auth | Body | Description |
+|---|---|---|---|---|
+| `POST` | `/api/tags` | **admin** | `{ name, color? }` | Create a workspace tag |
+| `DELETE` | `/api/tags` | **admin** | `{ tagId }` | Delete a workspace tag |
+| `POST` | `/api/decisions/tags` | member | `{ decisionId, tagId }` | Apply a tag to a decision |
+| `DELETE` | `/api/decisions/tags` | member | `{ decisionId, tagId }` | Remove a tag from a decision |
+
+### Team & settings
+
+| Method | Route | Auth | Body | Description |
+|---|---|---|---|---|
+| `POST` | `/api/team` | **admin** | `{ email, role }` | Invite a member (creates user if none exists) |
+| `PUT` | `/api/settings` | **admin** | `{ name, slug }` | Update workspace name and URL slug |
+
+### Platform (provider)
+
+Staff-only routes for the platform control plane - gated by `withPlatformApi` (401 if
+unauthenticated, 403 without `platformRole`). Intentionally **not** scoped to a single
+workspace. See [Platform admin](../PLATFORM_ADMIN.md).
+
+| Method | Route | Auth | Body | Description |
+|---|---|---|---|---|
+| `GET` | `/api/platform/workspaces` | **platform** | - | List every company with status and member/decision counts |
+| `POST` | `/api/platform/workspaces/:id/enter` | **platform** | - | Enter a company (re-issues the session at that workspace) |
+| `POST` | `/api/platform/exit` | **platform** | - | Stop impersonating; return to your home workspace |
+| `PATCH` | `/api/platform/workspaces/:id` | **platform** | `{ name?, slug?, status? }` | Rename and/or suspend / reactivate a company |
+
+### Utilities
+
+| Method | Route | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/seed` | - | Seed demo workspace (idempotent) |
 
 See [business-logic-layer.md](business-logic-layer.md) for the helpers these handlers call,
 and [data-layer.md](data-layer.md) for the Prisma/transaction details.

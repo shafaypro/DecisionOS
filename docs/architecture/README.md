@@ -111,7 +111,7 @@ On Vercel: vercel.json crons. On ECS: EventBridge (deploy/aws-ecs/optional-sched
 | Concern | Where | Notes |
 |---|---|---|
 | **Auth guard** | `src/proxy.ts` | Next 16 convention; gates protected routes, allows `/login`, `/signup`, `/`, `/pricing`, `/share`. |
-| **Sessions** | `src/lib/session.ts` | JWT (jose, HS256) in an httpOnly cookie; 7-day expiry. |
+| **Sessions** | `src/lib/session.ts` | Encrypted JWE (jose, `dir` + A256GCM) in an httpOnly cookie; 7-day expiry. API routes also revalidate live membership + workspace status per request (`src/lib/access-control.ts`). |
 | **Authorization** | `src/lib/auth-guards.ts` | `isViewer` / `canWrite` / `isAdmin` helpers used per route. |
 | **Platform authorization** | `src/lib/platform-authorize.ts`, `src/lib/platform-api-handler.ts` | Provider control plane - a **separate axis** from the workspace role. `isPlatformAdmin` / `authorizePlatform` / `withPlatformApi` gate the `(platform)/admin` console + `/api/platform/*` (staff from `PLATFORM_ADMIN_EMAILS`). Does **not** touch `workspaceWhere()` - tenant isolation is unchanged. See [PLATFORM_ADMIN.md](../PLATFORM_ADMIN.md). |
 | **Config & secrets** | `src/lib/env.ts` | Single validated source; `SESSION_SECRET`/`DATABASE_URL` required in prod. |
@@ -120,6 +120,41 @@ On Vercel: vercel.json crons. On ECS: EventBridge (deploy/aws-ecs/optional-sched
 | **Logging** | `src/lib/logger.ts` | Structured JSON in prod for cloud log aggregation. |
 | **Analytics** | `src/lib/analytics.ts` | First-party events to the DB; fire-and-forget. |
 | **Workspace isolation** | every API route | Resources are filtered by `session.workspaceId`; cross-workspace access → 404. Platform-admin "enter company" works *within* this rule by swapping `session.workspaceId`, not by bypassing the filter. |
+
+## Authentication flow
+
+```
+POST /login  (server action)
+  → bcrypt.compare(password, user.passwordHash)
+  → createSession({ userId, workspaceId, role, email, name })
+      → jose.EncryptJWT(...).encrypt(key derived from SESSION_SECRET)   # JWE, A256GCM
+      → Set-Cookie: session=<jwe>; HttpOnly; SameSite=Lax; Path=/
+
+Every page request
+  → proxy.ts intercepts
+  → decrypt(cookie) → if no valid session → redirect /login
+  → if session + public route → redirect /dashboard
+
+API routes
+  → getSession() → decrypt cookie → session payload
+  → withApi: role check → revalidate live membership + workspace status (30s cache)
+  → handlers scope every query by session.workspaceId
+```
+
+Session payload shape:
+
+```ts
+{
+  userId: string
+  workspaceId: string
+  role: "admin" | "member" | "viewer"
+  email: string
+  name: string
+  // Platform control plane - present only for provider staff (see PLATFORM_ADMIN.md)
+  platformRole?: "superadmin"      // sourced from PLATFORM_ADMIN_EMAILS at login; never DB-granted
+  platformHomeWorkspaceId?: string // the admin's own workspace - the way back from impersonation
+}
+```
 
 ## Tech stack
 
