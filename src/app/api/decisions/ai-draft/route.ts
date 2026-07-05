@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { isViewer, VIEWER_ERROR } from "@/lib/auth-guards";
+import { isViewer, isPlatformAdmin, VIEWER_ERROR } from "@/lib/auth-guards";
+import { revalidateWorkspaceAccess } from "@/lib/access-control";
 import { resolveAnthropicConfig } from "@/lib/anthropic";
 import { logger } from "@/lib/logger";
 import { aiDraftLimiter, mutationKey } from "@/lib/rate-limit";
@@ -9,6 +10,10 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (isViewer(session.role)) return NextResponse.json(VIEWER_ERROR, { status: 403 });
+  if (!isPlatformAdmin(session.platformRole)) {
+    const access = await revalidateWorkspaceAccess(session.userId, session.workspaceId);
+    if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+  }
 
   const limit = await aiDraftLimiter.check(mutationKey(session));
   if (!limit.ok) {

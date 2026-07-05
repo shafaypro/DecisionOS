@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
+import { invalidateWorkspaceAccess } from "@/lib/access-control";
 import { isPlatformAdminEmail } from "@/lib/env";
 import { track } from "@/lib/analytics";
 import { auditApiEvent } from "@/lib/audit-log";
@@ -47,6 +48,9 @@ export const DELETE = withApi<undefined, { id: string }>(
     }
 
     await prisma.workspaceMembership.delete({ where: { id: membership.id } });
+    // Revoke the removed member's cached API access immediately (don't wait for
+    // the 30s revalidation TTL) on this instance.
+    invalidateWorkspaceAccess(membership.userId, membership.workspaceId);
 
     track({
       event: "member.removed",

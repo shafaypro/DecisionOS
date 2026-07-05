@@ -16,6 +16,8 @@ const holder = vi.hoisted(() => ({
     email: string;
     name: string;
     expiresAt: Date;
+    platformRole?: "superadmin";
+    platformHomeWorkspaceId?: string;
   },
 }));
 vi.mock("@/lib/session", () => ({
@@ -45,6 +47,7 @@ import { POST as bulkPOST } from "@/app/api/decisions/bulk/route";
 import { GET as similarGET } from "@/app/api/decisions/similar/route";
 import { GET as exportGET } from "@/app/api/decisions/export/route";
 import { withApi } from "@/lib/api-handler";
+import { __resetAccessCache } from "@/lib/access-control";
 
 type Segment = { params: Promise<{ id: string }> };
 function jsonReq(body?: unknown) {
@@ -339,5 +342,53 @@ describe("withApi - role authorization", () => {
   it("200 for an admin", async () => {
     sessionFor(ctx.aAdmin, ctx.wsA, "admin");
     expect((await adminOnly(req())).status).toBe(200);
+  });
+});
+
+describe("withApi - session revalidation (live membership + workspace status)", () => {
+  const anyMember = withApi({ require: "auth" }, () => NextResponse.json({ ok: true }));
+  const req = () => new NextRequest("http://localhost/x", { method: "POST" });
+
+  it("allows a current member of an active workspace", async () => {
+    __resetAccessCache();
+    sessionFor(ctx.aMember, ctx.wsA, "member");
+    expect((await anyMember(req())).status).toBe(200);
+  });
+
+  it("401s once the caller's membership is removed (revocation, not 7-day lag)", async () => {
+    sessionFor(ctx.aMember, ctx.wsA, "member");
+    const m = await prisma.workspaceMembership.findUnique({
+      where: { workspaceId_userId: { workspaceId: ctx.wsA, userId: ctx.aMember } },
+    });
+    await prisma.workspaceMembership.delete({ where: { id: m!.id } });
+    __resetAccessCache(); // the team-remove route does this via invalidateWorkspaceAccess
+    expect((await anyMember(req())).status).toBe(401);
+    // restore for any later tests
+    await prisma.workspaceMembership.create({
+      data: { workspaceId: ctx.wsA, userId: ctx.aMember, role: "member" },
+    });
+    __resetAccessCache();
+  });
+
+  it("403s every member when the workspace is suspended", async () => {
+    __resetAccessCache();
+    sessionFor(ctx.aAdmin, ctx.wsA, "admin");
+    await prisma.workspace.update({ where: { id: ctx.wsA }, data: { status: "suspended" } });
+    __resetAccessCache();
+    expect((await anyMember(req())).status).toBe(403);
+    await prisma.workspace.update({ where: { id: ctx.wsA }, data: { status: "active" } });
+    __resetAccessCache();
+  });
+
+  it("lets a platform admin who entered a workspace through (no membership row there)", async () => {
+    __resetAccessCache();
+    // aAdmin has no membership in wsB; as platform staff they still get through.
+    holder.session = {
+      userId: ctx.aAdmin, workspaceId: ctx.wsB, role: "admin",
+      email: "a@t.test", name: "a", expiresAt: new Date(Date.now() + 6e5),
+      platformRole: "superadmin",
+    };
+    expect((await anyMember(req())).status).toBe(200);
+    holder.session = null;
   });
 });
