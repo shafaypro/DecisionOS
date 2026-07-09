@@ -68,7 +68,7 @@ jobs:
       # --strict fails the build on broken links / nav drift, matching the
       # "keep mkdocs build warning-free" policy in requirements-docs.txt.
       - run: mkdocs build --strict
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
