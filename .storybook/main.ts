@@ -3,7 +3,7 @@ import path from "path";
 import webpack from "webpack";
 
 const config: StorybookConfig = {
-  stories: ["../src/components/**/*.stories.@(ts|tsx)"],
+  stories: ["../src/components/**/*.stories.@(ts|tsx)", "../src/app/**/*.stories.@(ts|tsx)"],
   addons: ["@storybook/addon-a11y"],
   framework: {
     name: "@storybook/nextjs",
