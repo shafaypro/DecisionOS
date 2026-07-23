@@ -75,7 +75,7 @@
     "storybook": "^10.4.4",
     "tailwindcss": "^4",
     "tsx": "^4.22.5",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.9"
   },
   "overrides": {
