@@ -18,6 +18,7 @@ export default async function ReviewsPage() {
   if (!session) redirect("/login");
 
   const workspaceId = session.workspaceId;
+  const isViewer = session.role === "viewer";
   const now = new Date();
 
   const [overdue, upcoming, recentlyReviewed, allReviews] = await Promise.all([
@@ -143,7 +144,7 @@ export default async function ReviewsPage() {
                         </Badge>
                       </div>
                     </Link>
-                    <InlineReviewButtons decisionId={d.id} />
+                    {!isViewer && <InlineReviewButtons decisionId={d.id} />}
                   </div>
                 </div>
               ))}

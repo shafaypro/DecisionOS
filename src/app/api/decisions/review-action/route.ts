@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   });
 
   if (!existingReview || new Date(existingReview.createdAt) < new Date(decision.reviewDate ?? 0)) {
-    const outcomeStatus = action === "valid" ? "successful" : "assumptions_changed";
+    const outcomeStatus = action === "valid" ? "successful" : "mixed";
     const summary = action === "valid"
       ? "Still valid, confirmed via email."
       : "Assumptions have changed, requires follow-up.";

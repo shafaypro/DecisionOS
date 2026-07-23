@@ -9,6 +9,7 @@ export const activityEventsTests = {
   "known event types map to their verb phrase"() {
     assertEqual(activityEventVerb("status_changed"), "changed the status of");
     assertEqual(activityEventVerb("note_added"), "added a note to");
+    assertEqual(activityEventVerb("note_replied"), "replied to a note on");
     assertEqual(activityEventVerb("updated"), "edited");
   },
 

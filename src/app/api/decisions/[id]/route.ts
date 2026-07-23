@@ -68,43 +68,49 @@ export const PUT = withApi<DecisionPatchInput, { id: string }>(
 
     const oldStatus = existing.status;
 
-    // Count existing versions for numbering
-    const versionCount = await prisma.decisionVersion.count({ where: { decisionId: id } });
+    // Update + before-snapshot + events commit atomically so a failure can't
+    // leave an updated decision with no version history. The version count is
+    // read inside the transaction so concurrent inline saves don't collide on
+    // the same versionNum.
+    const updated = await prisma.$transaction(async (tx) => {
+      const versionCount = await tx.decisionVersion.count({ where: { decisionId: id } });
+      const row = await tx.decision.update({ where: { id }, data });
 
-    const updated = await prisma.decision.update({ where: { id }, data });
+      await tx.decisionVersion.create({
+        data: {
+          decisionId: id,
+          versionNum: versionCount + 1,
+          snapshotJson: JSON.stringify(existing),
+          changedById: session.userId,
+        },
+      });
 
-    // Save a full snapshot of the before-state for versioning
-    await prisma.decisionVersion.create({
-      data: {
-        decisionId: id,
-        versionNum: versionCount + 1,
-        snapshotJson: JSON.stringify(existing),
-        changedById: session.userId,
-      },
-    });
-
-    await prisma.decisionEvent.create({
-      data: {
-        decisionId: id,
-        userId: session.userId,
-        eventType: "updated",
-        oldValueJson: JSON.stringify({ title: existing.title }),
-        newValueJson: JSON.stringify({ title: updated.title }),
-      },
-    });
-
-    const statusChanged = oldStatus !== updated.status;
-    if (statusChanged) {
-      await prisma.decisionEvent.create({
+      await tx.decisionEvent.create({
         data: {
           decisionId: id,
           userId: session.userId,
-          eventType: "status_changed",
-          oldValueJson: JSON.stringify({ status: oldStatus }),
-          newValueJson: JSON.stringify({ status: updated.status }),
+          eventType: "updated",
+          oldValueJson: JSON.stringify({ title: existing.title }),
+          newValueJson: JSON.stringify({ title: row.title }),
         },
       });
-    }
+
+      if (oldStatus !== row.status) {
+        await tx.decisionEvent.create({
+          data: {
+            decisionId: id,
+            userId: session.userId,
+            eventType: "status_changed",
+            oldValueJson: JSON.stringify({ status: oldStatus }),
+            newValueJson: JSON.stringify({ status: row.status }),
+          },
+        });
+      }
+
+      return row;
+    });
+
+    const statusChanged = oldStatus !== updated.status;
 
     await notifyDecisionWatchers({
       decisionId: id,

@@ -28,7 +28,7 @@ interface Props {
 
 /**
  * The decision-detail header action bar: Cite why, Share, Supersede, Archive,
- * History, Edit. One client component because every action needs browser-only
+ * History. One client component because every action needs browser-only
  * behavior (clipboard, modal state, navigation) that can't live in the server
  * page.
  */

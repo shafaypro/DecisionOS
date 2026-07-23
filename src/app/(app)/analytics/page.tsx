@@ -100,10 +100,10 @@ export default async function AnalyticsPage() {
 
   // Pattern analysis - derived in-memory (a single workspace's dataset is small)
   const now2 = new Date();
-  const categoryStats = new Map<string, { total: number; reversed: number; noRationale: number; unhealthy: number }>();
+  const categoryStats = new Map<string, { total: number; reversed: number; unhealthy: number }>();
   for (const d of allDecisions) {
     const cat = d.category ?? "other";
-    if (!categoryStats.has(cat)) categoryStats.set(cat, { total: 0, reversed: 0, noRationale: false as unknown as number, unhealthy: 0 });
+    if (!categoryStats.has(cat)) categoryStats.set(cat, { total: 0, reversed: 0, unhealthy: 0 });
     const s = categoryStats.get(cat)!;
     s.total++;
     if (d.status === "reversed" || d.status === "superseded") s.reversed++;

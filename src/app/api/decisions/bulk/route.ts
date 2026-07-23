@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { notifyDecisionWatchers } from "@/lib/notify-watchers";
 import { withApi } from "@/lib/api-handler";
 import { bulkOperationLimiter, mutationKey } from "@/lib/rate-limit";
 import { BulkSchema, type BulkInput } from "@/lib/schemas";
@@ -33,24 +34,35 @@ export const POST = withApi<BulkInput>(
       return NextResponse.json({ error: "Some decisions were not found or not in your workspace." }, { status: 404 });
 
     if (action === "archive") {
-      await prisma.decision.updateMany({
-        where: { id: { in: ids }, workspaceId: session.workspaceId },
-        data: { status: "archived" },
-      });
-      await Promise.all(
-        decisions
-          .filter((d) => d.status !== "archived")
-          .map((d) =>
-            prisma.decisionEvent.create({
-              data: {
-                decisionId: d.id,
-                userId: session.userId,
-                eventType: "status_changed",
-                oldValueJson: JSON.stringify({ status: d.status }),
-                newValueJson: JSON.stringify({ status: "archived" }),
-              },
-            }),
-          ),
+      const newlyArchived = decisions.filter((d) => d.status !== "archived");
+      await prisma.$transaction([
+        prisma.decision.updateMany({
+          where: { id: { in: ids }, workspaceId: session.workspaceId },
+          data: { status: "archived" },
+        }),
+        ...newlyArchived.map((d) =>
+          prisma.decisionEvent.create({
+            data: {
+              decisionId: d.id,
+              userId: session.userId,
+              eventType: "status_changed",
+              oldValueJson: JSON.stringify({ status: d.status }),
+              newValueJson: JSON.stringify({ status: "archived" }),
+            },
+          }),
+        ),
+      ]);
+      // Same watcher fan-out the single-archive route does.
+      await Promise.allSettled(
+        newlyArchived.map((d) =>
+          notifyDecisionWatchers({
+            decisionId: d.id,
+            actorUserId: session.userId,
+            actorName: session.name,
+            event: "archived",
+            summary: "This decision was archived.",
+          }),
+        ),
       );
       return NextResponse.json({ success: true, affected: ids.length });
     }

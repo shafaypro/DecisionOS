@@ -121,7 +121,7 @@ flows, and the public share page.
 |---|---|---|---|---|
 | `POST` | `/api/decisions` | member | Decision fields (JSON) | Create a new decision |
 | `PUT` | `/api/decisions/:id` | member | Decision fields (JSON) | Update an existing decision |
-| `POST` | `/api/decisions/archive` | owner or admin | `{ decisionId }` | Archive a decision (sets status = `archived`) |
+| `POST` | `/api/decisions/archive` | member | `{ decisionId }` | Archive a decision (sets status = `archived`) |
 | `POST` | `/api/decisions/ask` | any member | `{ question }` | Ask a natural-language question; returns a grounded, cited answer + ranked source decisions (degrades to semantic search with no AI key) |
 | `GET` | `/api/decisions/export` | member | - | Download all workspace decisions as CSV |
 

@@ -130,7 +130,7 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
       include: {
         owner: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
-        _count: { select: { notes: true, reviews: true } },
+        _count: { select: { reviews: true } },
       },
     }),
     prisma.decision.findMany({
@@ -229,14 +229,14 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
       id: "rationale",
       label: "Write rationale for at least one decision",
       done: withRationale >= 1,
-      href: totalCount > 0 ? `/decisions/${decisions[0]?.id}/edit` : "/decisions/new",
+      href: totalCount > 0 ? `/decisions/${aggRows[0]?.id}` : "/decisions/new",
       cta: "Fill in",
     },
     {
       id: "review_date",
       label: "Set a review date on a decision",
       done: withReviewDate >= 1,
-      href: totalCount > 0 ? `/decisions/${decisions[0]?.id}/edit` : "/decisions/new",
+      href: totalCount > 0 ? `/decisions/${aggRows[0]?.id}` : "/decisions/new",
       cta: "Set",
     },
     {
