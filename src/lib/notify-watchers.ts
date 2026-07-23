@@ -19,6 +19,7 @@ export type DecisionChangeEvent =
   | "status_changed"
   | "reviewed"
   | "note_added"
+  | "note_replied"
   | "archived"
   | "superseded";
 
@@ -27,6 +28,7 @@ const EVENT_VERB: Record<DecisionChangeEvent, string> = {
   status_changed: "changed the status of",
   reviewed: "reviewed",
   note_added: "commented on",
+  note_replied: "replied to a note on",
   archived: "archived",
   superseded: "superseded",
 };

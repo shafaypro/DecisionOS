@@ -130,7 +130,9 @@ flows, and the public share page.
 | Method | Route | Auth | Body | Description |
 |---|---|---|---|---|
 | `POST` | `/api/decisions/notes` | member | `{ decisionId, content }` | Add a note to a decision |
-| `DELETE` | `/api/decisions/notes` | owner or admin | `{ noteId }` | Delete a note |
+| `DELETE` | `/api/decisions/notes` | author or admin | `{ noteId }` | Delete a note |
+| `POST` | `/api/decisions/notes/replies` | member | `{ noteId, content }` | Reply to a note (threaded) |
+| `DELETE` | `/api/decisions/notes/replies` | author or admin | `{ replyId }` | Delete a reply |
 
 ### Links
 
