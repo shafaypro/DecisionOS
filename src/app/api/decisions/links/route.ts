@@ -14,12 +14,14 @@ export const POST = withApi<LinkWriteInput>(
     );
     if (!decision) return NextResponse.json({ error: "Decision not found." }, { status: 404 });
 
-    await prisma.decisionLink.create({
-      data: { decisionId, label, url, linkType: linkType || "other", createdByUserId: session.userId },
-    });
-    await prisma.decisionEvent.create({
-      data: { decisionId, userId: session.userId, eventType: "link_added", newValueJson: JSON.stringify({ label, url }) },
-    });
+    await prisma.$transaction([
+      prisma.decisionLink.create({
+        data: { decisionId, label, url, linkType: linkType || "other", createdByUserId: session.userId },
+      }),
+      prisma.decisionEvent.create({
+        data: { decisionId, userId: session.userId, eventType: "link_added", newValueJson: JSON.stringify({ label, url }) },
+      }),
+    ]);
 
     return NextResponse.json({ success: true });
   },
@@ -30,11 +32,11 @@ export const DELETE = withApi<LinkDeleteInput>(
   async ({ session, body }) => {
     const link = await prisma.decisionLink.findUnique({
       where: { id: body.linkId },
-      include: { decision: { select: { workspaceId: true, createdByUserId: true } } },
+      include: { decision: { select: { workspaceId: true } } },
     });
     if (!link || link.decision.workspaceId !== session.workspaceId)
       return NextResponse.json({ error: "Link not found." }, { status: 404 });
-    if (link.decision.createdByUserId !== session.userId && session.role !== "admin")
+    if (link.createdByUserId !== session.userId && session.role !== "admin")
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
 
     await prisma.decisionLink.delete({ where: { id: body.linkId } });

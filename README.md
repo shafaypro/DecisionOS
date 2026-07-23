@@ -79,7 +79,7 @@ Then sign in with the seeded demo accounts:
 | **Impact Levels** | Low / Medium / High / Critical with colour-coded badges |
 | **Category System** | Engineering, Product, Hiring, Finance, Marketing, Operations, Strategy, Other |
 | **Outcome Reviews** | Submit periodic reviews with a rating, summary, lessons learned, and follow-up actions; full review history per decision |
-| **Notes & Comments** | Add contextual notes to any decision; delete your own notes |
+| **Notes & Comments** | Add contextual notes to any decision with threaded replies; delete your own notes and replies |
 | **Resource Links** | Attach references (RFC, PR, ADR, article, etc.) with typed link categories |
 | **Tag System** | Admins create colour-coded workspace tags; any member can apply/remove tags on decisions |
 | **Advanced Filtering** | Filter by status, category, impact level, outcome, owner, or free-text search across titles |
@@ -167,7 +167,7 @@ How it's put together - the layered model, request flows, data model, API refere
 - [x] Viewer role (read-only access below Member)
 - [x] Bulk actions (archive multiple decisions, bulk-export filtered results)
 - [x] Kanban board, My Work, activity feed, in-app notifications, and decision watching
-- [ ] Comment threads on notes (replies) - API and data model are in place; detail-page UI is not yet wired up
+- [x] Comment threads on notes (replies) - threaded replies with inline composer on the decision detail page
 
 ---
 

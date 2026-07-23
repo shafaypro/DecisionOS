@@ -8,6 +8,7 @@ import { NoteForm } from "./note-form";
 import { LinkForm } from "./link-form";
 import { ReviewForm } from "./review-form";
 import { DeleteNoteButton } from "./delete-note-button";
+import { NoteReplies } from "./note-replies";
 import { DeleteLinkButton } from "./delete-link-button";
 import { RelationForm } from "./relation-form";
 import { Row } from "./row";
@@ -87,6 +88,7 @@ const EVENT_LABELS: Record<string, string> = {
   review_scheduled: "scheduled a review",
   reviewed: "submitted a review",
   note_added: "added a note",
+  note_replied: "replied to a note",
   link_added: "added a link",
 };
 
@@ -104,7 +106,13 @@ export default async function DecisionDetailPage({ params }: PageProps) {
         createdBy: { select: { id: true, name: true, email: true } },
         owner: { select: { id: true, name: true, email: true } },
         notes: {
-          include: { user: { select: { id: true, name: true } } },
+          include: {
+            user: { select: { id: true, name: true } },
+            replies: {
+              include: { user: { select: { id: true, name: true } } },
+              orderBy: { createdAt: "asc" },
+            },
+          },
           orderBy: { createdAt: "desc" },
         },
         links: {
@@ -321,6 +329,18 @@ export default async function DecisionDetailPage({ params }: PageProps) {
                         )}
                       </div>
                       <Text as="p">{note.content}</Text>
+                      <NoteReplies
+                        noteId={note.id}
+                        currentUserId={session.userId}
+                        isAdmin={session.role === "admin"}
+                        readOnly={isViewer}
+                        replies={note.replies.map((reply) => ({
+                          id: reply.id,
+                          content: reply.content,
+                          createdAt: reply.createdAt.toISOString(),
+                          user: { id: reply.user.id, name: reply.user.name },
+                        }))}
+                      />
                     </div>
                   </div>
                 ))}

@@ -283,6 +283,27 @@ async function main() {
     ],
   });
 
+  // Threaded replies on the RDS note so the demo shows a conversation
+  const rdsNote = await prisma.decisionNote.findFirst({
+    where: { decisionId: d1.id, userId: member1.id },
+  });
+  if (rdsNote) {
+    await prisma.noteReply.createMany({
+      data: [
+        {
+          noteId: rdsNote.id,
+          userId: admin.id,
+          content: "Nice - does replica lag stay acceptable during peak traffic?",
+        },
+        {
+          noteId: rdsNote.id,
+          userId: member1.id,
+          content: "Yes, load test showed ~200ms p99 lag. Full numbers are in the migration RFC.",
+        },
+      ],
+    });
+  }
+
   // Add links
   await prisma.decisionLink.createMany({
     data: [

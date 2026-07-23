@@ -124,7 +124,9 @@ export type NoteDeleteInput = z.infer<typeof NoteDeleteSchema>;
 
 export const ReviewWriteSchema = z.object({
   decisionId: z.string().min(1),
-  outcomeStatus: z.string().trim().min(1, "Outcome status is required").max(50),
+  outcomeStatus: z.enum(["unknown", "successful", "mixed", "unsuccessful"], {
+    error: "Outcome status is required",
+  }),
   summary: z.string().max(10_000).nullable().optional(),
   lessonsLearned: z.string().max(10_000).nullable().optional(),
   followUpAction: z.string().max(10_000).nullable().optional(),

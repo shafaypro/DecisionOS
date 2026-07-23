@@ -37,11 +37,11 @@ export const DELETE = withApi<NoteDeleteInput>(
   async ({ session, body }) => {
     const note = await prisma.decisionNote.findUnique({
       where: { id: body.noteId },
-      include: { decision: { select: { workspaceId: true, createdByUserId: true } } },
+      include: { decision: { select: { workspaceId: true } } },
     });
     if (!note || note.decision.workspaceId !== session.workspaceId)
       return NextResponse.json({ error: "Note not found." }, { status: 404 });
-    if (note.decision.createdByUserId !== session.userId && session.role !== "admin")
+    if (note.userId !== session.userId && session.role !== "admin")
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
 
     await prisma.decisionNote.delete({ where: { id: body.noteId } });

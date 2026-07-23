@@ -14,8 +14,6 @@ export const POST = withApi<ArchiveInput>(
       session,
     );
     if (!decision) return NextResponse.json({ error: "Decision not found." }, { status: 404 });
-    if (decision.createdByUserId !== session.userId && session.role !== "admin")
-      return NextResponse.json({ error: "Not authorized." }, { status: 403 });
 
     await prisma.$transaction([
       prisma.decision.update({ where: { id: decisionId }, data: { status: "archived" } }),

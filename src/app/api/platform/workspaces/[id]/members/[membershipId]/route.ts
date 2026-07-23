@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { withPlatformApi } from "@/lib/platform-api-handler";
 import { isPlatformAdminEmail } from "@/lib/env";
 import { track } from "@/lib/analytics";
+import { invalidateWorkspaceAccess } from "@/lib/access-control";
+import { recordAudit } from "@/lib/audit-log";
+import { auditContextFromHeaders } from "@/lib/audit";
 
 /**
  * Platform-only member removal: drop a user from any company. Cross-tenant - the
@@ -12,7 +15,7 @@ import { track } from "@/lib/analytics";
  */
 export const DELETE = withPlatformApi<undefined, { id: string; membershipId: string }>(
   {},
-  async ({ session, params }) => {
+  async ({ session, params, req }) => {
     const membership = await prisma.workspaceMembership.findUnique({
       where: { id: params.membershipId },
       select: { id: true, workspaceId: true, userId: true, role: true, user: { select: { email: true } } },
@@ -44,6 +47,9 @@ export const DELETE = withPlatformApi<undefined, { id: string; membershipId: str
     }
 
     await prisma.workspaceMembership.delete({ where: { id: membership.id } });
+    // Revoke the removed member's cached API access immediately (don't wait for
+    // the revalidation TTL) on this instance.
+    invalidateWorkspaceAccess(membership.userId, membership.workspaceId);
 
     track({
       event: "member.removed",
@@ -51,6 +57,16 @@ export const DELETE = withPlatformApi<undefined, { id: string; membershipId: str
       userId: session.userId,
       source: "web",
       props: { via: "platform", removedUserId: membership.userId },
+    });
+    const ctx = auditContextFromHeaders(req.headers);
+    await recordAudit({
+      action: "member.removed",
+      actor: { userId: session.userId, email: session.email, workspaceId: params.id },
+      targetType: "user",
+      targetId: membership.userId,
+      metadata: { via: "platform", targetEmail: membership.user.email, role: membership.role },
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
     });
 
     return NextResponse.json({ success: "Member removed from the workspace." });

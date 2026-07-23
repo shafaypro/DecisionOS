@@ -25,7 +25,7 @@ interface Decision {
   reviewDate: Date | null;
   updatedAt: Date;
   owner: { id: string; name: string } | null;
-  _count: { notes: number; reviews: number };
+  _count: { reviews: number };
 }
 
 interface DecisionsTableProps {

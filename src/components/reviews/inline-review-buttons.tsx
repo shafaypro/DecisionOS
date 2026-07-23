@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { OUTCOME_COLORS, cn } from "@/lib/utils";
 
@@ -11,11 +11,11 @@ interface InlineReviewButtonsProps {
 }
 
 export function InlineReviewButtons({ decisionId }: InlineReviewButtonsProps) {
-  const [done, setDone] = useState<"valid" | "changed" | null>(null);
+  const [done, setDone] = useState<"successful" | "mixed" | "unsuccessful" | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  function submit(outcomeStatus: string, summary: string) {
+  function submit(outcomeStatus: "successful" | "mixed" | "unsuccessful", summary: string) {
     startTransition(async () => {
       const res = await fetch("/api/decisions/reviews", {
         method: "POST",
@@ -23,30 +23,24 @@ export function InlineReviewButtons({ decisionId }: InlineReviewButtonsProps) {
         body: JSON.stringify({ decisionId, outcomeStatus, summary }),
       });
       if (res.ok) {
-        setDone(outcomeStatus === "successful" ? "valid" : "changed");
+        setDone(outcomeStatus);
         router.refresh();
       }
     });
   }
 
   if (done) {
+    const doneMeta = {
+      successful: { label: "Marked as still valid", icon: CheckCircle2 },
+      mixed: { label: "Marked as assumptions changed", icon: AlertTriangle },
+      unsuccessful: { label: "Marked as didn't hold up", icon: XCircle },
+    }[done];
+    const DoneIcon = doneMeta.icon;
     return (
       <div className="mt-3">
-        {done === "valid" ? (
-          <Badge
-            className={OUTCOME_COLORS.successful}
-            icon={<CheckCircle2 className="h-3 w-3" />}
-          >
-            Marked as still valid
-          </Badge>
-        ) : (
-          <Badge
-            className={OUTCOME_COLORS.mixed}
-            icon={<AlertTriangle className="h-3 w-3" />}
-          >
-            Marked as assumptions changed
-          </Badge>
-        )}
+        <Badge className={OUTCOME_COLORS[done]} icon={<DoneIcon className="h-3 w-3" />}>
+          {doneMeta.label}
+        </Badge>
       </div>
     );
   }
@@ -62,7 +56,7 @@ export function InlineReviewButtons({ decisionId }: InlineReviewButtonsProps) {
         Still valid
       </Badge>
       <Badge
-        onClick={() => submit("assumptions_changed", "Assumptions have changed.")}
+        onClick={() => submit("mixed", "Assumptions have changed.")}
         disabled={pending}
         className={cn(OUTCOME_COLORS.mixed, "hover:bg-amber-100")}
         icon={<AlertTriangle className="h-3 w-3" />}

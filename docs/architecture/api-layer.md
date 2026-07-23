@@ -121,7 +121,7 @@ flows, and the public share page.
 |---|---|---|---|---|
 | `POST` | `/api/decisions` | member | Decision fields (JSON) | Create a new decision |
 | `PUT` | `/api/decisions/:id` | member | Decision fields (JSON) | Update an existing decision |
-| `POST` | `/api/decisions/archive` | owner or admin | `{ decisionId }` | Archive a decision (sets status = `archived`) |
+| `POST` | `/api/decisions/archive` | member | `{ decisionId }` | Archive a decision (sets status = `archived`) |
 | `POST` | `/api/decisions/ask` | any member | `{ question }` | Ask a natural-language question; returns a grounded, cited answer + ranked source decisions (degrades to semantic search with no AI key) |
 | `GET` | `/api/decisions/export` | member | - | Download all workspace decisions as CSV |
 
@@ -130,7 +130,9 @@ flows, and the public share page.
 | Method | Route | Auth | Body | Description |
 |---|---|---|---|---|
 | `POST` | `/api/decisions/notes` | member | `{ decisionId, content }` | Add a note to a decision |
-| `DELETE` | `/api/decisions/notes` | owner or admin | `{ noteId }` | Delete a note |
+| `DELETE` | `/api/decisions/notes` | author or admin | `{ noteId }` | Delete a note |
+| `POST` | `/api/decisions/notes/replies` | member | `{ noteId, content }` | Reply to a note (threaded) |
+| `DELETE` | `/api/decisions/notes/replies` | author or admin | `{ replyId }` | Delete a reply |
 
 ### Links
 

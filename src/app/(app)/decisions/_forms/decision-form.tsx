@@ -258,7 +258,6 @@ export function DecisionForm({
       assumptions: assumptions || null,
       risks: risks || null,
       visibility: "workspace",
-      saveAsDraft: saveAsProposed ? "true" : undefined,
     };
 
     setError(undefined);
