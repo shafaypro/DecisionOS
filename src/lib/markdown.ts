@@ -60,19 +60,25 @@ function renderInline(escaped: string): string {
   });
 
   // [label](url) - the only place a user value reaches an attribute.
+  //
+  // `href` here is already HTML-escaped (the whole input was escaped up front),
+  // which is exactly the form an attribute value needs: the browser decodes
+  // `&amp;` back to `&` when it reads the attribute. So it is emitted as-is,
+  // with no unescape/re-escape round trip - that round trip is how double-
+  // unescaping bugs (and the `&amp;amp;` class of mangled links) get in.
+  // Escaping cannot hide a scheme from `safeHref` either: it only rewrites
+  // `& < > " '`, so a `javascript:` prefix survives escaping unchanged and is
+  // still matched, while an entity a user typed literally stays inert text.
   out = out.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (_whole, label: string, href: string) => {
-    // The href was escaped upstream; &amp; must go back to & to stay a valid URL.
-    const decoded = href.replace(/&amp;/g, "&").replace(/&#39;/g, "'");
-    const safe = safeHref(decoded);
+    const safe = safeHref(href);
     if (!safe) return label;
-    return `<a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer nofollow">${label}</a>`;
+    return `<a href="${safe}" target="_blank" rel="noopener noreferrer nofollow">${label}</a>`;
   });
 
-  // Bare URLs.
-  out = out.replace(/(^|\s)(https?:\/\/[^\s<]+)/g, (_m, lead: string, url: string) => {
-    const decoded = url.replace(/&amp;/g, "&");
-    return `${lead}<a href="${escapeHtml(decoded)}" target="_blank" rel="noopener noreferrer nofollow">${url}</a>`;
-  });
+  // Bare URLs. Same reasoning: the matched text is already escaped.
+  out = out.replace(/(^|\s)(https?:\/\/[^\s<]+)/g, (_m, lead: string, url: string) =>
+    `${lead}<a href="${url}" target="_blank" rel="noopener noreferrer nofollow">${url}</a>`,
+  );
 
   out = out
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")

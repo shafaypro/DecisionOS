@@ -91,7 +91,10 @@ export const decisionExportTests = {
 
   "a base URL adds a link back to the live record": () => {
     const md = decisionToMarkdown(DECISION, { baseUrl: "https://d.acme.com/" });
-    assert(md.includes("https://d.acme.com/decisions/dec_1"), "trailing slash normalized");
+    // Pull the link target out and compare it whole - a substring check would
+    // also pass on a mangled URL that merely contains the expected text.
+    const target = /\[View in DecisionOS\]\(([^)]+)\)/.exec(md)?.[1];
+    assert(target === "https://d.acme.com/decisions/dec_1", `unexpected link: ${target}`);
   },
 
   "the bundle lists a table of contents and every decision body": () => {

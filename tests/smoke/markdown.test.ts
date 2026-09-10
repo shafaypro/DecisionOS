@@ -40,6 +40,14 @@ export const markdownTests = {
     assert(out.includes("click me"), "label preserved as text");
   },
 
+  "an & in a link target is escaped exactly once": () => {
+    // The href is emitted in its already-escaped form; re-escaping it here
+    // would ship `&amp;amp;` and break the link when the browser decodes it.
+    const out = renderMarkdown("[report](https://example.com/r?a=1&b=2)");
+    assert(out.includes('href="https://example.com/r?a=1&amp;b=2"'), `bad href: ${out}`);
+    assert(!out.includes("&amp;amp;"), "must not double-escape");
+  },
+
   "renders links with noopener/noreferrer": () => {
     const out = renderMarkdown("[docs](https://example.com/x)");
     assert(out.includes('href="https://example.com/x"'), "href set");
@@ -92,11 +100,10 @@ export const markdownTests = {
   },
 
   "markdownToPlainText strips syntax for previews": () => {
-    const text = markdownToPlainText("## Title\n\n- **bold** [link](https://x.com)\n\n`code`");
-    assert(!text.includes("#") && !text.includes("*"), "syntax removed");
-    assert(text.includes("bold"), "content kept");
-    assert(text.includes("link"), "link label kept");
-    assert(!text.includes("https://x.com"), "link target dropped");
+    // Exact equality rather than substring checks: it pins the whole output,
+    // including that the link target is dropped and only the label survives.
+    const text = markdownToPlainText("## Title\n\n- **bold** [link](https://x.example)\n\n`code`");
+    assert(text === "Title bold link code", `unexpected plain text: ${text}`);
   },
 
   "readingTime is 0 for empty text and at least 1 for any content": () => {
