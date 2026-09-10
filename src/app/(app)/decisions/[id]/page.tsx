@@ -17,7 +17,7 @@ import { WatchButton } from "./watch-button";
 import { ReactionsBar } from "./reactions-bar";
 import { EditableText, EditableField, EditableStatus, EditableSelect, EditableDate } from "./editable";
 import {
-  User, Calendar, Clock,
+  User, Calendar, Clock, Download,
   ExternalLink, Activity, Network,
 } from "lucide-react";
 import {
@@ -29,6 +29,8 @@ import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { Text } from "@/components/ui/text";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Markdown } from "@/components/ui/markdown";
+import { QualityMeter } from "@/components/decisions/quality-meter";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -65,7 +67,7 @@ function Field({
   if (isViewer) {
     return (
       <Section title={label}>
-        <Text as="div" className="whitespace-pre-wrap leading-relaxed">{value}</Text>
+        <Markdown text={value} />
       </Section>
     );
   }
@@ -138,6 +140,8 @@ export default async function DecisionDetailPage({ params }: PageProps) {
           include: { user: { select: { id: true, name: true } } },
           orderBy: { createdAt: "asc" },
         },
+        // Tag count feeds the record-quality meter in the right column.
+        tags: { select: { id: true } },
       },
     }),
     prisma.decision.findMany({
@@ -328,7 +332,7 @@ export default async function DecisionDetailPage({ params }: PageProps) {
                           />
                         )}
                       </div>
-                      <Text as="p">{note.content}</Text>
+                      <Markdown text={note.content} />
                       <NoteReplies
                         noteId={note.id}
                         currentUserId={session.userId}
@@ -424,6 +428,40 @@ export default async function DecisionDetailPage({ params }: PageProps) {
                 prefix="Review:"
               />
             )}
+          </div>
+
+          {/* Record quality - how well this decision is written down, and the
+              highest-value fields still missing. */}
+          <div className="space-y-3 border-t border-slate-200 pt-5">
+            <Text as="h3" size="2xs" weight="semibold" color="muted" uppercase>
+              Record quality
+            </Text>
+            <QualityMeter
+              decision={{
+                summary: decision.summary,
+                problemStatement: decision.problemStatement,
+                chosenOption: decision.chosenOption,
+                rationale: decision.rationale,
+                alternativesConsidered: decision.alternativesConsidered,
+                assumptions: decision.assumptions,
+                risks: decision.risks,
+                ownerUserId: decision.ownerUserId,
+                decisionDate: decision.decisionDate,
+                reviewDate: decision.reviewDate,
+                linkCount: decision.links.length,
+                tagCount: decision.tags.length,
+              }}
+            />
+            <a
+              href={`/api/decisions/${id}/markdown`}
+              download
+              className="inline-flex items-center gap-1.5 hover:underline"
+            >
+              <Download className="h-3.5 w-3.5 text-text-subtle" />
+              <Text as="span" size="2xs" color="muted">
+                Export as Markdown (ADR)
+              </Text>
+            </a>
           </div>
 
           {/* Decision relations (inline list) */}

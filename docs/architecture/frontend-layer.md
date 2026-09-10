@@ -103,7 +103,8 @@ mutation through the validated, workspace-scoped [API layer](api-layer.md).
 | `/ask` | **Ask DecisionOS** - ask your decision history in plain English; grounded, cited answers with clickable sources |
 | `/graph` | Interactive decision graph - force-directed canvas with pan/zoom/drag and edge-type legend |
 | `/reviews` | Workspace-wide reviews hub - overdue, upcoming, recent |
-| `/analytics` | Decision patterns by category - reversal rate and health rate per category |
+| `/analytics` | Decision patterns by category, plus 12-month throughput/review sparklines, cycle times, review compliance, and the record-quality roll-up |
+| `/risks` | Risk register - every recorded risk and assumption on active decisions, ranked by impact and by whether the decision has been re-checked |
 | `/tags` | Tag management (admins create/delete; all members apply) |
 | `/team` | Member roster + invite form (admin) |
 | `/settings` | Workspace name and slug settings (admin) |

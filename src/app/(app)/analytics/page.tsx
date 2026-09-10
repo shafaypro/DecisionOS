@@ -9,10 +9,13 @@ import { cn,
   STATUS_COLORS, CATEGORY_COLORS, STATUSES, CATEGORIES, getLabelForValue,
 } from "@/lib/utils";
 import {
-  TrendingUp, CheckSquare, Clock, Users,
-  FileText, AlertTriangle, Target, RefreshCw, Lightbulb,
+  TrendingUp, TrendingDown, Minus, CheckSquare, Clock, Users,
+  FileText, AlertTriangle, Target, RefreshCw, Lightbulb, Gauge,
 } from "lucide-react";
 import { computeDecisionHealth } from "@/lib/decision-health";
+import { computeTrends } from "@/lib/trends";
+import { summarizeQuality } from "@/lib/decision-quality";
+import { Sparkline } from "@/components/ui/sparkline";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
 
@@ -71,9 +74,11 @@ export default async function AnalyticsPage() {
       where: { workspaceId: wid },
       select: {
         id: true, category: true, status: true, outcomeStatus: true,
-        ownerUserId: true, reviewDate: true, reviewedAt: true,
+        ownerUserId: true, reviewDate: true, reviewedAt: true, decisionDate: true,
         updatedAt: true, createdAt: true,
-        _count: { select: { reviews: true } },
+        summary: true, problemStatement: true, chosenOption: true, rationale: true,
+        alternativesConsidered: true, assumptions: true, risks: true,
+        _count: { select: { reviews: true, links: true, tags: true } },
       },
     }),
     // Member workload: action items assigned per person
@@ -123,6 +128,20 @@ export default async function AnalyticsPage() {
     }))
     .sort((a, b) => b.reversalRate - a.reversalRate)
     .filter((c) => c.total >= 2);
+
+  // Trend + cycle-time view: the "is this getting better or worse" half of
+  // analytics, derived from the same single fetch as the health roll-up.
+  const trends = computeTrends(allDecisions, { months: 12, now: now2 });
+  const quality = summarizeQuality(
+    allDecisions.map((d) => ({ ...d, linkCount: d._count.links, tagCount: d._count.tags })),
+  );
+  const createdSeries = trends.months.map((m) => m.created);
+  const reviewedSeries = trends.months.map((m) => m.reviewed);
+  const momentumIcon =
+    trends.momentum.direction === "up" ? TrendingUp
+    : trends.momentum.direction === "down" ? TrendingDown
+    : Minus;
+  const MomentumIcon = momentumIcon;
 
   const completionRate = totalActionItems === 0
     ? 0
@@ -252,6 +271,138 @@ export default async function AnalyticsPage() {
                   );
                 })}
               </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Trends - throughput, review discipline, and record quality over time */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="rounded-xs border border-slate-200 bg-white p-5 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <Text as="h3" className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-blue-500" />
+                Decision throughput
+              </Text>
+              <Text as="p" size="xs" color="muted">
+                Decisions logged per month (last 12 months)
+              </Text>
+            </div>
+            <span className="flex items-center gap-1.5">
+              <MomentumIcon
+                className={cn(
+                  "h-4 w-4",
+                  trends.momentum.direction === "up" ? "text-emerald-600"
+                  : trends.momentum.direction === "down" ? "text-amber-600"
+                  : "text-slate-400",
+                )}
+              />
+              <Text as="span" size="xs" color="secondary">
+                {trends.momentum.current} in 30d
+                {trends.momentum.changePct !== null && (
+                  <> ({trends.momentum.changePct > 0 ? "+" : ""}{trends.momentum.changePct}%)</>
+                )}
+              </Text>
+            </span>
+          </div>
+
+          <Sparkline
+            values={createdSeries}
+            width={520}
+            height={56}
+            className="w-full"
+            label={`Decisions logged per month: ${trends.months
+              .map((m) => `${m.label} ${m.created}`)
+              .join(", ")}`}
+          />
+          <div className="flex justify-between">
+            <Text as="span" size="2xs" color="muted">{trends.months[0]?.label}</Text>
+            <Text as="span" size="2xs" color="muted">
+              {trends.months[trends.months.length - 1]?.label}
+            </Text>
+          </div>
+
+          <div className="border-t border-slate-100 pt-3">
+            <Text as="p" size="xs" color="muted">
+              Reviews completed per month
+            </Text>
+            <Sparkline
+              values={reviewedSeries}
+              width={520}
+              height={36}
+              className="w-full"
+              stroke="#10b981"
+              label={`Reviews completed per month: ${trends.months
+                .map((m) => `${m.label} ${m.reviewed}`)
+                .join(", ")}`}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xs border border-slate-200 bg-white p-5 space-y-4">
+          <div>
+            <Text as="h3" className="flex items-center gap-2">
+              <Gauge className="h-4 w-4 text-violet-500" />
+              Discipline &amp; record quality
+            </Text>
+            <Text as="p" size="xs" color="muted">
+              How reliably reviews land, and how well decisions are written down
+            </Text>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              {
+                label: "Review compliance",
+                value: `${trends.cycle.reviewCompliance}%`,
+                hint: `${trends.cycle.overdueNow} overdue right now`,
+              },
+              {
+                label: "Median review lag",
+                value: trends.cycle.medianReviewLagDays === null
+                  ? "-"
+                  : `${trends.cycle.medianReviewLagDays}d`,
+                hint: "After the scheduled date",
+              },
+              {
+                label: "Median time to decide",
+                value: trends.cycle.medianDaysToDecide === null
+                  ? "-"
+                  : `${trends.cycle.medianDaysToDecide}d`,
+                hint: "Logged → decision date",
+              },
+              {
+                label: "Success rate",
+                value: trends.outcomes.successRate === null
+                  ? "-"
+                  : `${trends.outcomes.successRate}%`,
+                hint: "Of decisions with a known outcome",
+              },
+            ].map((stat) => (
+              <div key={stat.label}>
+                <Text as="p" size="lg" weight="semibold" color="primary">{stat.value}</Text>
+                <Text as="p" size="xs" color="secondary">{stat.label}</Text>
+                <Text as="p" size="2xs" color="muted">{stat.hint}</Text>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-slate-100 pt-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <Text as="span" size="xs" color="secondary">Average record quality</Text>
+              <Text as="span" size="xs" color="muted">{quality.average}/100</Text>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-violet-500"
+                style={{ width: `${quality.average}%` }}
+              />
+            </div>
+            {quality.topGaps.length > 0 && (
+              <Text as="p" size="2xs" color="muted">
+                Most common gaps: {quality.topGaps.map((g) => `${g.label} (${g.count})`).join(", ")}
+              </Text>
             )}
           </div>
         </div>

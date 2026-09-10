@@ -5,13 +5,25 @@ import { withApi } from "@/lib/api-handler";
 import { decisionVisibilityWhere } from "@/lib/tenant";
 import { exportLimiter, mutationKey } from "@/lib/rate-limit";
 import { csvCell as escapeCsv } from "@/lib/csv";
+import {
+  decisionsToJson,
+  decisionsToMarkdownBundle,
+  parseExportFormat,
+} from "@/lib/decision-export";
 
 function formatCsvDate(date: Date | null | undefined): string {
   if (!date) return "";
   return format(date, "yyyy-MM-dd");
 }
 
-export const GET = withApi<undefined>({ require: "auth" }, async ({ session }) => {
+/**
+ * Export the caller's visible decision log.
+ *
+ * `?format=` picks the shape: `csv` (default, spreadsheet-friendly), `json` (a
+ * versioned envelope suitable for backup/migration), or `md` (one Markdown
+ * bundle with a table of contents, for committing next to the code).
+ */
+export const GET = withApi<undefined>({ require: "auth" }, async ({ session, req }) => {
   const limit = await exportLimiter.check(mutationKey(session));
   if (!limit.ok) {
     return NextResponse.json(
@@ -20,9 +32,61 @@ export const GET = withApi<undefined>({ require: "auth" }, async ({ session }) =
     );
   }
 
+  const formatKind = parseExportFormat(new URL(req.url).searchParams.get("format"));
   // Export only what the caller may see: workspace-visible + their own private.
+  const visible = decisionVisibilityWhere(session);
+  const stamp = format(new Date(), "yyyy-MM-dd");
+
+  // The portable formats carry references and full review history, which CSV
+  // flattens to counts - so they get their own query rather than making every
+  // CSV export pay for the joins.
+  if (formatKind !== "csv") {
+    const [decisions, workspace] = await Promise.all([
+      prisma.decision.findMany({
+        where: visible,
+        orderBy: { createdAt: "desc" },
+        include: {
+          owner: { select: { name: true } },
+          createdBy: { select: { name: true } },
+          tags: { include: { tag: { select: { name: true } } } },
+          links: { select: { label: true, url: true, linkType: true } },
+          reviews: {
+            orderBy: { createdAt: "desc" },
+            include: { reviewedBy: { select: { name: true } } },
+          },
+        },
+      }),
+      prisma.workspace.findUnique({
+        where: { id: session.workspaceId },
+        select: { id: true, name: true, slug: true },
+      }),
+    ]);
+
+    if (formatKind === "json") {
+      const envelope = decisionsToJson(decisions, workspace ?? { id: session.workspaceId });
+      return new NextResponse(JSON.stringify(envelope, null, 2), {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Disposition": `attachment; filename="decisions-${stamp}.json"`,
+        },
+      });
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
+    const bundle = decisionsToMarkdownBundle(decisions, {
+      baseUrl,
+      workspaceName: workspace?.name ? `${workspace.name} decision log` : undefined,
+    });
+    return new NextResponse(bundle, {
+      headers: {
+        "Content-Type": "text/markdown; charset=utf-8",
+        "Content-Disposition": `attachment; filename="decisions-${stamp}.md"`,
+      },
+    });
+  }
+
   const decisions = await prisma.decision.findMany({
-    where: decisionVisibilityWhere(session),
+    where: visible,
     orderBy: { createdAt: "desc" },
     include: {
       owner: { select: { name: true } },
@@ -67,7 +131,7 @@ export const GET = withApi<undefined>({ require: "auth" }, async ({ session }) =
   ]);
 
   const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-  const filename = `decisions-${format(new Date(), "yyyy-MM-dd")}.csv`;
+  const filename = `decisions-${stamp}.csv`;
 
   return new NextResponse(csv, {
     headers: {

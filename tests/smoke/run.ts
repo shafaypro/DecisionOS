@@ -30,6 +30,12 @@ import { schemasTests } from "./schemas.test";
 import { observabilityTests } from "./observability.test";
 import { activityEventsTests } from "./activity-events.test";
 import { notifyTests } from "./notify.test";
+import { searchQueryTests } from "./search-query.test";
+import { markdownTests } from "./markdown.test";
+import { decisionQualityTests } from "./decision-quality.test";
+import { decisionExportTests } from "./decision-export.test";
+import { trendsTests } from "./trends.test";
+import { openapiTests } from "./openapi.test";
 
 type TestFn = () => void | Promise<void>;
 type Suite = { name: string; tests: Record<string, TestFn> };
@@ -73,6 +79,12 @@ const SUITES: Suite[] = [
   { name: "observability (request-context correlation)", tests: observabilityTests },
   { name: "activity events (feed labels)", tests: activityEventsTests },
   { name: "notify (webhook senders)", tests: notifyTests },
+  { name: "search query language (filters + free text)", tests: searchQueryTests },
+  { name: "markdown (escape-first renderer + link safety)", tests: markdownTests },
+  { name: "decision quality (record completeness score)", tests: decisionQualityTests },
+  { name: "decision export (Markdown ADR + JSON envelope)", tests: decisionExportTests },
+  { name: "trends (time series + cycle times)", tests: trendsTests },
+  { name: "openapi (spec integrity vs the route tree)", tests: openapiTests },
 ];
 
 async function main() {

@@ -6,6 +6,39 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Search query language.** The decisions search box and
+  `GET /api/decisions/search` now accept GitHub-style filters -
+  `status:`, `category:`, `impact:`, `outcome:`, `owner:` (with `owner:me`),
+  `tag:`, `health:`, `before:` / `after:` (absolute or relative like `30d`), and
+  the `is:mine|unowned|overdue|draft|reviewed|private` shorthands. Repeating a
+  field ORs its values, a `-` prefix excludes, and quoted phrases are kept
+  intact. Unknown filters and unparseable dates degrade to free text with a
+  visible warning rather than silently returning nothing. Documented in
+  `docs/SEARCH.md`, with an in-app cheatsheet next to the search box.
+- **Markdown and JSON exports.** `GET /api/decisions/export?format=json|md|csv`
+  now returns a versioned JSON envelope or a Markdown bundle in addition to CSV,
+  and `GET /api/decisions/:id/markdown` exports a single decision as an
+  ADR-shaped file with YAML front matter.
+- **Record quality score.** A weighted completeness score per decision -
+  rationale and alternatives carry the most weight, stub answers earn half
+  credit - shown on the decision page with the highest-value missing fields as
+  next actions, and rolled up across the workspace on Analytics.
+- **Risk register** at `/risks`: every recorded risk and assumption across active
+  decisions, ranked by impact and by whether anyone has re-checked the decision
+  lately.
+- **Trends and cycle times on Analytics.** 12-month throughput and review
+  sparklines, review compliance, median time-to-decide and review lag, momentum
+  against the prior 30 days, and outcome success rate - also served as JSON at
+  `GET /api/analytics/trends`.
+- **Markdown rendering** for decision fields, notes, and reviews, via a
+  dependency-free renderer that HTML-escapes the whole input before emitting any
+  tag and allows only `http`/`https`/`mailto` link targets.
+- **OpenAPI 3.1 document** at `GET /api/openapi`, with its server URL following
+  the deployment, plus `docs/API.md` covering scripting and export formats.
+- Keyboard shortcut `G K` for the risk register.
+
 ### Security
 
 - CSV exports now neutralize spreadsheet formula injection (cells beginning with
