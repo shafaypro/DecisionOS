@@ -4,6 +4,7 @@ import { withApi } from "@/lib/api-handler";
 import { decisionVisibilityWhere } from "@/lib/tenant";
 import { computeTrends } from "@/lib/trends";
 import { summarizeQuality } from "@/lib/decision-quality";
+import { clampIntParam } from "@/lib/utils";
 
 /**
  * Time-series view of the decision log: monthly throughput, cycle times, review
@@ -13,10 +14,11 @@ import { summarizeQuality } from "@/lib/decision-quality";
  * can graph it in whatever they already use.
  */
 export const GET = withApi<undefined>({ require: "auth" }, async ({ session, req }) => {
-  const monthsParam = Number(new URL(req.url).searchParams.get("months"));
-  const months = Number.isFinite(monthsParam)
-    ? Math.min(36, Math.max(1, Math.trunc(monthsParam)))
-    : 12;
+  const months = clampIntParam(new URL(req.url).searchParams.get("months"), {
+    min: 1,
+    max: 36,
+    fallback: 12,
+  });
 
   const rows = await prisma.decision.findMany({
     where: decisionVisibilityWhere(session),

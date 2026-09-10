@@ -6,6 +6,7 @@ import { decisionVisibilityWhere } from "@/lib/tenant";
 import { isPlatformAdmin } from "@/lib/auth-guards";
 import { revalidateWorkspaceAccess } from "@/lib/access-control";
 import { computeDecisionHealth } from "@/lib/decision-health";
+import { clampIntParam } from "@/lib/utils";
 import {
   buildWhere,
   describeQuery,
@@ -39,10 +40,11 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const raw = searchParams.get("q")?.trim() ?? "";
-  const limitParam = Number(searchParams.get("limit"));
-  const limit = Number.isFinite(limitParam)
-    ? Math.min(50, Math.max(1, Math.trunc(limitParam)))
-    : DEFAULT_LIMIT;
+  const limit = clampIntParam(searchParams.get("limit"), {
+    min: 1,
+    max: 50,
+    fallback: DEFAULT_LIMIT,
+  });
 
   // `q` is a small filter language ("status:approved owner:me database"), not
   // just free text - see lib/search-query.ts for the grammar.

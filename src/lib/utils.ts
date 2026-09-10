@@ -164,6 +164,26 @@ export function blastRadiusTone(count: number): string {
     : "bg-slate-50 border-slate-200 text-slate-600";
 }
 
+/**
+ * Read a bounded integer out of a query string.
+ *
+ * The obvious `Number(searchParams.get(x))` is a trap: a *missing* param reads
+ * as `null`, `Number(null)` is `0`, and `0` is finite - so the "no value given"
+ * case silently becomes zero and gets clamped to the minimum instead of falling
+ * back to the default. (That shipped once: an absent `?limit=` clamped search
+ * results to a single row.) Anything absent, blank, or non-numeric returns
+ * `fallback`; anything else is truncated and clamped into [min, max].
+ */
+export function clampIntParam(
+  raw: string | null | undefined,
+  { min, max, fallback }: { min: number; max: number; fallback: number },
+): number {
+  if (raw == null || raw.trim() === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(n)));
+}
+
 export function getLabelForValue<T extends { value: string; label: string }>(
   options: readonly T[],
   value: string

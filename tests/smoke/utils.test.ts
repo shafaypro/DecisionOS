@@ -9,6 +9,7 @@ import {
   CATEGORIES,
   STATUSES,
   RELATION_TYPES,
+  clampIntParam,
 } from "../../src/lib/utils";
 
 /**
@@ -90,4 +91,28 @@ export const utilsTests = {
     assertEqual(getLabelForValue(STATUSES, "nonexistent_status"), "nonexistent_status");
     assertEqual(getLabelForValue(CATEGORIES, ""), "");
   },
+
+  "clampIntParam: a missing param falls back instead of collapsing to zero": () => {
+    // Number(null) is 0 and 0 is finite, so the naive check clamps an absent
+    // param to the minimum - that shipped once as a search limit of 1.
+    assert(clampIntParam(null, { min: 1, max: 50, fallback: 12 }) === 12, "null → fallback");
+    assert(clampIntParam(undefined, { min: 1, max: 50, fallback: 12 }) === 12, "undefined → fallback");
+    assert(clampIntParam("", { min: 1, max: 50, fallback: 12 }) === 12, "empty → fallback");
+    assert(clampIntParam("   ", { min: 1, max: 50, fallback: 12 }) === 12, "blank → fallback");
+  },
+
+  "clampIntParam: non-numeric input falls back": () => {
+    assert(clampIntParam("many", { min: 1, max: 50, fallback: 12 }) === 12, "words → fallback");
+    assert(clampIntParam("NaN", { min: 1, max: 50, fallback: 12 }) === 12, "NaN → fallback");
+    assert(clampIntParam("Infinity", { min: 1, max: 50, fallback: 12 }) === 12, "Infinity → fallback");
+  },
+
+  "clampIntParam: real values are truncated and clamped into range": () => {
+    assert(clampIntParam("7", { min: 1, max: 50, fallback: 12 }) === 7, "in range");
+    assert(clampIntParam("7.9", { min: 1, max: 50, fallback: 12 }) === 7, "truncated, not rounded");
+    assert(clampIntParam("999", { min: 1, max: 50, fallback: 12 }) === 50, "clamped to max");
+    assert(clampIntParam("0", { min: 1, max: 50, fallback: 12 }) === 1, "explicit 0 clamps to min");
+    assert(clampIntParam("-5", { min: 1, max: 50, fallback: 12 }) === 1, "negative clamps to min");
+  },
+
 };
