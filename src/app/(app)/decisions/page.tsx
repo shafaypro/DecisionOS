@@ -9,7 +9,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import {
   Activity,
   ArrowRight,
-  Download,
   FileText,
   Plus,
   Search,
@@ -21,10 +20,17 @@ import {
   type DecisionHealth,
 } from "@/lib/decision-health";
 import { summarizeWorkspace } from "@/lib/workspace-summary";
+import {
+  buildWhere,
+  matchesHealthFilter,
+  parseSearchQuery,
+  describeQuery,
+} from "@/lib/search-query";
 import { DecisionsSearchBar } from "./decisions-search-bar";
 import { DecisionsFilters } from "./decisions-filters";
 import { OnboardingChecklist, type ChecklistItem } from "./onboarding-checklist";
 import { DecisionsTable } from "./decisions-table";
+import { ExportMenu } from "@/components/decisions/export-menu";
 
 interface PageProps {
   searchParams: Promise<{
@@ -114,14 +120,21 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
     where.reviewedAt = null;
   }
   if (qualityFilter === "missing-rationale") where.rationale = null;
-  if (params.q) {
-    where.OR = [
-      { title: { contains: params.q } },
-      { rationale: { contains: params.q } },
-      { problemStatement: { contains: params.q } },
-      { chosenOption: { contains: params.q } },
-    ];
-  }
+
+  // `q` is the filter language ("status:approved owner:me database"), not just
+  // free text - see lib/search-query.ts. Tag names are resolved to ids only when
+  // the query actually uses one.
+  const parsedQuery = parseSearchQuery(params.q ?? "");
+  const queryTagTerms = [...(parsedQuery.include.tag ?? []), ...(parsedQuery.exclude.tag ?? [])];
+  const queryTags = queryTagTerms.length
+    ? await prisma.tag.findMany({ where: { workspaceId }, select: { id: true, name: true } })
+    : [];
+  const { where: queryWhere, healthFilter: queryHealthFilter } = buildWhere(parsedQuery, {
+    userId: session.userId,
+    tagIdsByName: Object.fromEntries(queryTags.map((t) => [t.name.toLowerCase(), t.id])),
+    now,
+  });
+  Object.assign(where, queryWhere);
 
   const [decisionsRaw, aggRows, slackLink] = await Promise.all([
     prisma.decision.findMany({
@@ -178,21 +191,27 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
 
   // Health is derived, so the DB query can't filter on it. Apply post-fetch.
   // Acceptable because a single workspace's decision set is small.
-  const decisions = healthFilter
-    ? decisionsRaw.filter(
-        (d) =>
-          computeDecisionHealth(
-            {
-              status: d.status,
-              ownerUserId: d.ownerUserId,
-              reviewDate: d.reviewDate,
-              reviewedAt: d.reviewedAt,
-              updatedAt: d.updatedAt,
-              reviewCount: d._count.reviews,
-            },
-            now,
-          ) === healthFilter,
-      )
+  const needsHealthPass =
+    Boolean(healthFilter) ||
+    queryHealthFilter.include.length > 0 ||
+    queryHealthFilter.exclude.length > 0;
+  const decisions = needsHealthPass
+    ? decisionsRaw.filter((d) => {
+        const health = computeDecisionHealth(
+          {
+            status: d.status,
+            ownerUserId: d.ownerUserId,
+            reviewDate: d.reviewDate,
+            reviewedAt: d.reviewedAt,
+            updatedAt: d.updatedAt,
+            reviewCount: d._count.reviews,
+          },
+          now,
+        );
+        // The `health=` chip and a `health:` term in the query both apply.
+        if (healthFilter && health !== healthFilter) return false;
+        return matchesHealthFilter(health, queryHealthFilter);
+      })
     : decisionsRaw;
 
   const hasFilters =
@@ -261,12 +280,7 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
         title="Decisions"
         actions={
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Button variant="outline" size="sm" asChild>
-              <a href="/api/decisions/export" download className="inline-flex items-center gap-2">
-                <Download className="h-4 w-4" />
-                Export CSV
-              </a>
-            </Button>
+            <ExportMenu />
             {!isViewer && (
               <Button asChild>
                 <Link href="/decisions/new">
@@ -306,6 +320,22 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
           hasFilters={!!hasFilters}
         />
       </div>
+
+      {/* How the query was interpreted, plus anything the parser couldn't use. */}
+      {params.q && (describeQuery(parsedQuery) || parsedQuery.warnings.length > 0) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {describeQuery(parsedQuery) && (
+            <Text as="span" size="xs" color="muted">
+              Matching {describeQuery(parsedQuery)}
+            </Text>
+          )}
+          {parsedQuery.warnings.map((warning) => (
+            <Text as="span" key={warning} size="xs" className="text-amber-700">
+              {warning}
+            </Text>
+          ))}
+        </div>
+      )}
 
       {totalCount > 0 && (
         <div className="flex flex-wrap items-center gap-2">

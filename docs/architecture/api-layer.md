@@ -123,7 +123,11 @@ flows, and the public share page.
 | `PUT` | `/api/decisions/:id` | member | Decision fields (JSON) | Update an existing decision |
 | `POST` | `/api/decisions/archive` | member | `{ decisionId }` | Archive a decision (sets status = `archived`) |
 | `POST` | `/api/decisions/ask` | any member | `{ question }` | Ask a natural-language question; returns a grounded, cited answer + ranked source decisions (degrades to semantic search with no AI key) |
-| `GET` | `/api/decisions/export` | member | - | Download all workspace decisions as CSV |
+| `GET` | `/api/decisions/export` | member | `?format=csv\|json\|md` | Download the caller's visible decisions as CSV (default), a versioned JSON envelope, or a Markdown bundle |
+| `GET` | `/api/decisions/:id/markdown` | member | - | Download one decision as an ADR-style Markdown file with YAML front matter |
+| `GET` | `/api/decisions/search` | member | `?q=`, `?limit=` | Search with the [filter syntax](../SEARCH.md); returns ranked matches, a readable interpretation, and parser warnings |
+| `GET` | `/api/analytics/trends` | member | `?months=` (1-36) | Monthly throughput, cycle times, review compliance, momentum, outcome mix, and the record-quality roll-up |
+| `GET` | `/api/openapi` | public | - | OpenAPI 3.1 description of this deployment's API (shapes only, no workspace data) |
 
 ### Notes
 

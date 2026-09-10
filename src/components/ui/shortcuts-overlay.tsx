@@ -11,6 +11,7 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["C"], label: "Create a new decision" },
   { keys: ["G", "D"], label: "Go to Decisions" },
   { keys: ["G", "R"], label: "Go to Reviews" },
+  { keys: ["G", "K"], label: "Go to Risk register" },
   { keys: ["G", "A"], label: "Go to Analytics" },
   { keys: ["G", "T"], label: "Go to Team" },
   { keys: ["G", "S"], label: "Go to Settings" },
@@ -74,6 +75,11 @@ export function ShortcutsOverlay() {
         if (key === "r") {
           e.preventDefault();
           router.push("/reviews");
+          return;
+        }
+        if (key === "k") {
+          e.preventDefault();
+          router.push("/risks");
           return;
         }
         if (key === "t") {

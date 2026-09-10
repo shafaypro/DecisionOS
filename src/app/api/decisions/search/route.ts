@@ -5,6 +5,17 @@ import { clientKey, searchLimiter } from "@/lib/rate-limit";
 import { decisionVisibilityWhere } from "@/lib/tenant";
 import { isPlatformAdmin } from "@/lib/auth-guards";
 import { revalidateWorkspaceAccess } from "@/lib/access-control";
+import { computeDecisionHealth } from "@/lib/decision-health";
+import {
+  buildWhere,
+  describeQuery,
+  matchesHealthFilter,
+  parseSearchQuery,
+} from "@/lib/search-query";
+
+/** Candidates pulled before scoring - wide enough to re-rank meaningfully. */
+const CANDIDATE_LIMIT = 100;
+const DEFAULT_LIMIT = 12;
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -27,29 +38,47 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const q = searchParams.get("q")?.trim() ?? "";
+  const raw = searchParams.get("q")?.trim() ?? "";
+  const limitParam = Number(searchParams.get("limit"));
+  const limit = Number.isFinite(limitParam)
+    ? Math.min(50, Math.max(1, Math.trunc(limitParam)))
+    : DEFAULT_LIMIT;
+
+  // `q` is a small filter language ("status:approved owner:me database"), not
+  // just free text - see lib/search-query.ts for the grammar.
+  const parsed = parseSearchQuery(raw);
+
+  // Tag filters are by name in the query but by id in the schema, so resolve the
+  // workspace's tags only when the query actually mentions one.
+  let tagIdsByName: Record<string, string> | undefined;
+  const tagTerms = [...(parsed.include.tag ?? []), ...(parsed.exclude.tag ?? [])];
+  if (tagTerms.length > 0) {
+    const tags = await prisma.tag.findMany({
+      where: { workspaceId: session.workspaceId },
+      select: { id: true, name: true },
+    });
+    tagIdsByName = Object.fromEntries(tags.map((t) => [t.name.toLowerCase(), t.id]));
+    for (const term of tagTerms) {
+      if (!tagIdsByName[term.toLowerCase()]) {
+        parsed.warnings.push(`No tag named "${term}" in this workspace.`);
+      }
+    }
+  }
+
+  const { where: queryWhere, healthFilter } = buildWhere(parsed, {
+    userId: session.userId,
+    tagIdsByName,
+  });
 
   // Scope to the workspace AND honor per-decision visibility (workspace-visible
-  // plus the caller's own private decisions). The text match is ANDed on top so
-  // search can't surface another member's private decision.
+  // plus the caller's own private decisions). The query filters are ANDed on top
+  // so search can't surface another member's private decision.
   const visibility = decisionVisibilityWhere(session);
-  const where = q
-    ? {
-        ...visibility,
-        AND: [
-          {
-            OR: [
-              { title: { contains: q } },
-              { rationale: { contains: q } },
-              { problemStatement: { contains: q } },
-              { chosenOption: { contains: q } },
-            ],
-          },
-        ],
-      }
-    : visibility;
+  const where = { ...visibility, ...queryWhere };
 
-  const raw = await prisma.decision.findMany({
+  const needsHealth = healthFilter.include.length > 0 || healthFilter.exclude.length > 0;
+
+  const raws = await prisma.decision.findMany({
     where,
     select: {
       id: true,
@@ -58,18 +87,56 @@ export async function GET(req: NextRequest) {
       rationale: true,
       updatedAt: true,
       owner: { select: { name: true } },
+      // Health is derived, so the inputs come along only when it's being filtered on.
+      ...(needsHealth
+        ? {
+            ownerUserId: true,
+            reviewDate: true,
+            reviewedAt: true,
+            _count: { select: { reviews: true } },
+          }
+        : {}),
     },
     orderBy: { updatedAt: "desc" },
-    take: 50,
+    take: needsHealth ? CANDIDATE_LIMIT : Math.max(CANDIDATE_LIMIT, limit),
   });
 
-  // Score and re-rank when a query is present
+  type Row = (typeof raws)[number] & {
+    ownerUserId?: string | null;
+    reviewDate?: Date | null;
+    reviewedAt?: Date | null;
+    _count?: { reviews: number };
+  };
+
+  let candidates = raws as Row[];
+  if (needsHealth) {
+    const now = new Date();
+    candidates = candidates.filter((d) =>
+      matchesHealthFilter(
+        computeDecisionHealth(
+          {
+            status: d.status,
+            ownerUserId: d.ownerUserId ?? null,
+            reviewDate: d.reviewDate ?? null,
+            reviewedAt: d.reviewedAt ?? null,
+            updatedAt: d.updatedAt,
+            reviewCount: d._count?.reviews ?? 0,
+          },
+          now,
+        ),
+        healthFilter,
+      ),
+    );
+  }
+
+  // Score and re-rank against the free-text part of the query.
+  const text = parsed.text;
   let decisions;
-  if (q) {
-    const ql = q.toLowerCase();
+  if (text) {
+    const ql = text.toLowerCase();
     const now = Date.now();
     const sevenDays = 7 * 24 * 60 * 60 * 1000;
-    const scored = raw.map((d) => {
+    const scored = candidates.map((d) => {
       const tl = d.title.toLowerCase();
       let score = 0;
       if (tl === ql) score += 10;
@@ -85,11 +152,23 @@ export async function GET(req: NextRequest) {
     });
     decisions = scored
       .sort((a, b) => b._score - a._score || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      .slice(0, 12)
+      .slice(0, limit)
       .map(({ _score, ...d }) => { void _score; return d; });
   } else {
-    decisions = raw.slice(0, 12);
+    decisions = candidates.slice(0, limit);
   }
 
-  return NextResponse.json({ decisions });
+  return NextResponse.json({
+    decisions: decisions.map((d) => ({
+      id: d.id,
+      title: d.title,
+      status: d.status,
+      rationale: d.rationale,
+      updatedAt: d.updatedAt,
+      owner: d.owner,
+    })),
+    total: candidates.length,
+    describe: describeQuery(parsed),
+    warnings: parsed.warnings,
+  });
 }

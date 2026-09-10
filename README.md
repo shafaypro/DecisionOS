@@ -83,10 +83,16 @@ Then sign in with the seeded demo accounts:
 | **Resource Links** | Attach references (RFC, PR, ADR, article, etc.) with typed link categories |
 | **Tag System** | Admins create colour-coded workspace tags; any member can apply/remove tags on decisions |
 | **Advanced Filtering** | Filter by status, category, impact level, outcome, owner, or free-text search across titles |
+| **Search Query Language** | One box, GitHub-style filters - `status:approved owner:me tag:infra impact:high -status:archived after:30d is:overdue "primary database"`. Unknown filters degrade to text with a warning instead of returning nothing. See [search syntax](docs/SEARCH.md) |
 | **Reviews Page** | Dedicated page showing overdue reviews, upcoming reviews, and review history across the workspace |
 | **Dashboard Analytics** | Live stats - active decisions, due-for-review, recently reviewed, reversals; recent activity feed; high-impact decisions |
 | **Public Share Page** | Generate a read-only shareable URL (`/share/:id`) for any workspace-visible decision - no login required |
 | **CSV Export** | One-click export of all decisions to a dated `.csv` file with 23 columns including tags, review counts, and all reasoning fields |
+| **Markdown / ADR Export** | Export one decision as an ADR-shaped `.md` file (YAML front matter, context → decision → consequences) to commit next to the code it governs, or the whole log as one bundle with a table of contents |
+| **JSON Export** | Versioned envelope (`schemaVersion`, workspace, decisions with tags, links, and full review history) for backup and migration - no screen-scraping |
+| **Record Quality Score** | Weighted completeness score per decision (rationale and alternatives weigh most) with the highest-value missing fields listed as next actions; rolled up per workspace |
+| **Risk Register** | Every recorded risk and assumption across active decisions in one page, ranked by impact and by whether anyone has re-checked the decision lately |
+| **Markdown Rendering** | Decision fields, notes, and reviews render Markdown - headings, lists, quotes, code, links - through an escape-first renderer with no parser dependency |
 | **Team Management** | Admins can invite members by email (creates an account if none exists), assign roles (Member / Admin), and view all workspace members |
 | **Workspace Settings** | Admins can update the workspace name and slug |
 | **Audit Log** | Every significant mutation (create, update, status change, note added, link added, reviewed) emits a `DecisionEvent` record |
@@ -108,6 +114,8 @@ Then sign in with the seeded demo accounts:
 | **OIDC SSO** | OIDC/OAuth2 SSO (Okta, Google Workspace, Azure AD, Auth0) - auto-provisions users on first login |
 | **Decision Templates** | Five built-in templates (Engineering ADR, Hiring Rubric, Product RFC, Business Go/No-Go, Operations Process) pre-fill the decision form |
 | **Analytics** | Decision patterns by category - reversal rate and unhealthy rate per category, no third-party tracker |
+| **Trends & Cycle Times** | 12-month throughput and review sparklines, review compliance, median time-to-decide and review lag, momentum vs the prior 30 days, and outcome success rate - also served as JSON at `/api/analytics/trends` |
+| **OpenAPI Spec** | Every deployment serves its own OpenAPI 3.1 document at `/api/openapi` - point Swagger UI, Postman, or a client generator straight at it. See [API & exports](docs/API.md) |
 | **Demo Seed** | One-request `/api/seed` endpoint populates a full demo workspace with decisions, reviews, notes, tags, and links |
 
 ---
@@ -178,6 +186,8 @@ Everything beyond this page lives on the docs site: **[shafaypro.github.io/Decis
 | Area | Start here |
 |---|---|
 | Setup (env, Postgres, Slack, SSO, email, cron) | [docs/SETUP.md](docs/SETUP.md) |
+| Search syntax (filters, shorthands, recipes) | [docs/SEARCH.md](docs/SEARCH.md) |
+| API, OpenAPI spec, and export formats | [docs/API.md](docs/API.md) |
 | Architecture overview + auth flow | [docs/architecture/](docs/architecture/README.md) |
 | Data model & field reference | [docs/architecture/data-layer.md](docs/architecture/data-layer.md) |
 | REST API endpoint reference | [docs/architecture/api-layer.md](docs/architecture/api-layer.md) |

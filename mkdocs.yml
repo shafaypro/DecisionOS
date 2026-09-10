@@ -66,6 +66,9 @@ exclude_docs: |
 nav:
   - Home: index.md
   - Setup: SETUP.md
+  - Using DecisionOS:
+      - Search syntax: SEARCH.md
+      - API & exports: API.md
   - Architecture:
       - Overview: architecture/README.md
       - Frontend layer: architecture/frontend-layer.md
