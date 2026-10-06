@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import Link from "next/link";
 import { cn, formatDate } from "@/lib/utils";
-import { GitBranch, Settings2, Plug, Lock, ShieldCheck, LayoutTemplate } from "lucide-react";
+import { GitBranch, Globe, Settings2, Plug, Lock, ShieldCheck, LayoutTemplate } from "lucide-react";
 import { UpdateWorkspaceForm } from "./update-workspace-form";
 import { AccountData } from "./account-data";
+import { SharingToggle } from "./sharing-toggle";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
 
@@ -30,6 +31,9 @@ export default async function SettingsPage() {
   if (!workspace) redirect("/login");
 
   const isAdmin = session.role === "admin";
+  const sharedCount = isAdmin
+    ? await prisma.decision.count({ where: { workspaceId: workspace.id, shareToken: { not: null } } })
+    : 0;
 
   return (
     <PageContainer>
@@ -81,6 +85,20 @@ export default async function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="rounded-xs transition-all duration-200">
+          <div className="flex flex-col space-y-1.5 p-6 pb-3">
+            <Text as="h3" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Sharing
+            </Text>
+          </div>
+          <div className="p-6 pt-0">
+            <SharingToggle enabled={workspace.publicSharing} sharedCount={sharedCount} />
+          </div>
+        </div>
+      )}
 
       {/* Admin-only settings */}
       {isAdmin && (

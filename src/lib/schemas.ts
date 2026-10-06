@@ -240,6 +240,9 @@ export const WorkspaceSettingsSchema = z.object({
 });
 export type WorkspaceSettingsInput = z.infer<typeof WorkspaceSettingsSchema>;
 
+export const WorkspaceSharingSchema = z.object({ publicSharing: z.boolean() });
+export type WorkspaceSharingInput = z.infer<typeof WorkspaceSharingSchema>;
+
 // ── Team ───────────────────────────────────────────────────────────────────────
 
 export const TeamInviteSchema = z.object({

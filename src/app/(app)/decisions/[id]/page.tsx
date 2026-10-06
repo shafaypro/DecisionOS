@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { decisionVisibilityWhere } from "@/lib/tenant";
+import { shareUrl } from "@/lib/share-link";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { Badge, Dot } from "@/components/ui/badge";
@@ -103,6 +104,8 @@ const EVENT_LABELS: Record<string, string> = {
   note_added: "added a note",
   note_replied: "replied to a note",
   link_added: "added a link",
+  share_enabled: "created a public link",
+  share_revoked: "revoked the public link",
 };
 
 /** Tab title is the decision's own title - only for decisions the viewer may see. */
@@ -128,6 +131,7 @@ export default async function DecisionDetailPage({ params }: PageProps) {
     prisma.decision.findUnique({
       where: { id },
       include: {
+        workspace: { select: { publicSharing: true } },
         createdBy: { select: { id: true, name: true, email: true } },
         owner: { select: { id: true, name: true, email: true } },
         notes: {
@@ -233,6 +237,9 @@ export default async function DecisionDetailPage({ params }: PageProps) {
               capturedOn={formatDate(decision.createdAt)}
               status={decision.status}
               workspaceDecisions={workspaceDecisions.map((d) => ({ id: d.id, title: d.title }))}
+              shareUrl={decision.shareToken ? shareUrl(decision.shareToken) : null}
+              sharingEnabled={decision.workspace.publicSharing}
+              isPrivate={decision.visibility !== "workspace"}
             />
           )}
         </div>
