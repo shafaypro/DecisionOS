@@ -23,9 +23,12 @@ export const AUDIT_ACTIONS = {
   "auth.sso_login": "Signed in via single sign-on",
   "auth.signup": "Created a new account and workspace",
   "auth.logout": "Signed out",
+  "auth.password_reset_requested": "Requested a password reset link",
+  "auth.password_set": "Set a password from an invite or reset link",
   // Membership
   "member.invited": "Added a member to the workspace",
   "member.removed": "Removed a member from the workspace",
+  "member.role_changed": "Changed a member's role",
   // Workspace lifecycle & configuration
   "workspace.updated": "Updated workspace settings",
   "workspace.deleted": "Deleted the workspace and all of its data",

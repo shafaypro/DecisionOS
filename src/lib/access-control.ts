@@ -18,10 +18,10 @@ import { prisma } from "./prisma";
  * `invalidateWorkspaceAccess` clears an entry immediately on a known change (e.g.
  * a member being removed) for instant revocation on that instance.
  *
- * Note: this enforces membership *existence* and workspace *status*. Role changes
- * (e.g. an admin demoted to member) still take effect on the next login, since
- * authorization keys off the session role; per-request role enforcement is a
- * follow-up.
+ * It also returns the live role: `withApi` authorizes against both the session
+ * role and this one, so a demotion takes effect within the cache TTL (or at
+ * once on this instance via `invalidateWorkspaceAccess`), while a promotion
+ * waits for the next sign-in.
  */
 
 export type AccessResult =

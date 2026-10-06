@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Text } from "@/components/ui/text";
 import { cn, formatDate } from "@/lib/utils";
 import { InviteMemberForm } from "./invite-member-form";
+import { MemberControls } from "./member-controls";
 import { Shield, User, Users } from "lucide-react";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
@@ -117,6 +118,9 @@ export default async function TeamPage() {
 
                   <div className="flex items-center justify-between gap-3 sm:justify-end">
                     <Text>Joined {formatDate(m.joinedAt)}</Text>
+                    {isAdmin && !isCurrentUser ? (
+                      <MemberControls membershipId={m.id} name={m.user.name} role={m.role} />
+                    ) : (
                     <Badge className={roleTone}>
                       <Text>
                         {m.role === "admin" ? (
@@ -129,6 +133,7 @@ export default async function TeamPage() {
                         </Text>
                       </Text>
                     </Badge>
+                    )}
                   </div>
                 </div>
               );

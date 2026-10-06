@@ -1,13 +1,25 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { Suspense, useActionState, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { login } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LogoMark, Wordmark } from "@/components/ui/logo";
 import { Text } from "@/components/ui/text";
-import { AlertCircle, Lock } from "lucide-react";
+import { AlertCircle, CheckCircle2, Lock } from "lucide-react";
+
+/** Shown after setting a password from a link when we couldn't sign them in directly. */
+function PasswordSetNotice() {
+  if (useSearchParams().get("password") !== "set") return null;
+  return (
+    <div className="flex items-center gap-2 rounded-xs bg-emerald-50 border border-emerald-200 px-4 py-3">
+      <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-text-success" />
+      <Text>Your password is set. Sign in with it below.</Text>
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(login, {});
@@ -34,6 +46,11 @@ export default function LoginPage() {
         {/* Card */}
         <div className="rounded-xs bg-white p-8 shadow-soft">
           <form action={action} className="space-y-5">
+            {!state?.error && (
+              <Suspense fallback={null}>
+                <PasswordSetNotice />
+              </Suspense>
+            )}
             {state?.error && (
               <div className="flex items-center gap-2 rounded-xs bg-red-50 border border-red-200 px-4 py-3">
                 <AlertCircle className="h-4 w-4 flex-shrink-0 text-text-danger" />
@@ -55,6 +72,11 @@ export default function LoginPage() {
 
             <Input
               label="Password"
+              labelAction={
+                <Text as={Link} href="/forgot-password" size="xs" color="muted" className="hover:underline">
+                  Forgot password?
+                </Text>
+              }
               id="password"
               name="password"
               type="password"

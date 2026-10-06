@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { withApi } from "@/lib/api-handler";
 import { parseBody, TeamInviteSchema } from "@/lib/schemas";
 import { teamInviteLimiter, mutationKey } from "@/lib/rate-limit";
 import { track } from "@/lib/analytics";
 import { auditApiEvent } from "@/lib/audit-log";
+import { sendInviteLink } from "@/lib/password-links";
 
 export const POST = withApi(
   { require: "admin" },
@@ -25,10 +27,12 @@ export const POST = withApi(
     const { email: normalizedEmail, role } = parsed.data;
 
     let user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    const isNewAccount = !user;
 
     if (!user) {
-      const tempPassword = Math.random().toString(36).slice(-10);
-      const passwordHash = await bcrypt.hash(tempPassword, 12);
+      // Nobody knows this password - it only exists so the row is valid. The
+      // invitee chooses their own through the emailed set-password link.
+      const passwordHash = await bcrypt.hash(randomBytes(32).toString("base64url"), 12);
       user = await prisma.user.create({
         data: {
           name: normalizedEmail.split("@")[0],
@@ -58,6 +62,33 @@ export const POST = withApi(
       metadata: { targetEmail: normalizedEmail, role: role || "member" },
     });
 
-    return NextResponse.json({ success: `${normalizedEmail} has been added to the workspace` });
+    // A brand-new account can't sign in until it has a password, so it gets a
+    // set-password link. An existing account already has one and just signs in.
+    // (Links are never minted for existing accounts: that would let one
+    // workspace's admin take over an account other workspaces rely on.)
+    if (!isNewAccount) {
+      return NextResponse.json({
+        success: `${normalizedEmail} already has a DecisionOS account and can sign in now.`,
+      });
+    }
+
+    const [workspace, inviter] = await Promise.all([
+      prisma.workspace.findUnique({ where: { id: session.workspaceId }, select: { name: true } }),
+      prisma.user.findUnique({ where: { id: session.userId }, select: { name: true } }),
+    ]);
+    const invite = await sendInviteLink({
+      user,
+      workspaceName: workspace?.name ?? "your team",
+      inviterName: inviter?.name ?? session.name,
+    });
+
+    return NextResponse.json(
+      invite.emailed
+        ? { success: `Invitation emailed to ${normalizedEmail}.` }
+        : {
+            success: `${normalizedEmail} has been added. Email isn't configured, so send them this link to set their password (valid for 7 days):`,
+            inviteUrl: invite.url,
+          },
+    );
   },
 );

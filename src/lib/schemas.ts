@@ -253,6 +253,11 @@ export const TeamInviteSchema = z.object({
 });
 export type TeamInviteInput = z.infer<typeof TeamInviteSchema>;
 
+export const TeamRoleSchema = z.object({
+  role: z.enum(["admin", "member", "viewer"], { error: "Role must be admin, member, or viewer" }),
+});
+export type TeamRoleInput = z.infer<typeof TeamRoleSchema>;
+
 // ── Platform (provider) console ──────────────────────────────────────────────
 
 /**
