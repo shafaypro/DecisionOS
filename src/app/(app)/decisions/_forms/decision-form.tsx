@@ -215,6 +215,7 @@ interface DecisionFormProps {
     category?: string;
     impactLevel?: string;
     status?: string;
+    visibility?: string;
     ownerUserId?: string;
     accountableUserId?: string;
     consultedIds?: string[];
@@ -301,6 +302,7 @@ export function DecisionForm({
   const [category, setCategory] = useState(defaultValues.category ?? "other");
   const [impactLevel, setImpactLevel] = useState(defaultValues.impactLevel ?? "medium");
   const [status, setStatus] = useState(defaultValues.status ?? "approved");
+  const [isPrivate, setIsPrivate] = useState(defaultValues.visibility === "private");
   const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
   const [rationale, setRationale] = useState(defaultValues.rationale ?? "");
   const [problemStatement, setProblemStatement] = useState(defaultValues.problemStatement ?? "");
@@ -374,7 +376,7 @@ export function DecisionForm({
       alternativesConsidered: alternativesConsidered || null,
       assumptions: assumptions || null,
       risks: risks || null,
-      visibility: "workspace",
+      visibility: isPrivate ? "private" : "workspace",
     };
 
     setError(undefined);
@@ -649,6 +651,22 @@ export function DecisionForm({
           defaultValue={defaultValues.decisionDate}
         />
       </div>
+
+      <label className="flex items-start gap-3 rounded-xs bg-white px-4 py-3">
+        <input
+          type="checkbox"
+          checked={isPrivate}
+          onChange={(e) => setIsPrivate(e.target.checked)}
+          className="mt-1 rounded-xs border-slate-300"
+        />
+        <span>
+          <Text as="span" weight="medium">Private</Text>
+          <Text as="p" size="sm" color="muted">
+            Only you can see it - useful for a sensitive call (compensation, personnel) or a draft you&apos;re not
+            ready to show. You can open it to the workspace later.
+          </Text>
+        </span>
+      </label>
 
       <Disclosure
         key={`alt-${appliedTemplateId}`}

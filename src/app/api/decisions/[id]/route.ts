@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { DecisionPatchSchema, type DecisionPatchInput } from "@/lib/schemas";
 import { withApi } from "@/lib/api-handler";
-import { sameWorkspace } from "@/lib/tenant";
+import { visibleDecision } from "@/lib/tenant";
 import { notifyDecisionWatchers } from "@/lib/notify-watchers";
 
 export const PUT = withApi<DecisionPatchInput, { id: string }>(
@@ -10,7 +10,7 @@ export const PUT = withApi<DecisionPatchInput, { id: string }>(
   async ({ session, body, params }) => {
     const { id } = params;
 
-    const existing = sameWorkspace(
+    const existing = visibleDecision(
       await prisma.decision.findUnique({ where: { id } }),
       session,
     );
@@ -46,6 +46,19 @@ export const PUT = withApi<DecisionPatchInput, { id: string }>(
     // Dates: empty → null.
     for (const k of ["decisionDate", "reviewDate"] as const) {
       if (has(k)) data[k] = body[k] ? new Date(body[k] as string) : null;
+    }
+    // Visibility is the author's call: anyone else flipping a decision to
+    // private would hide it from themselves and everyone but the author.
+    if (
+      data.visibility !== undefined &&
+      data.visibility !== existing.visibility &&
+      existing.createdByUserId !== session.userId &&
+      session.role !== "admin"
+    ) {
+      return NextResponse.json(
+        { error: "Only the decision's author or an admin can change who can see it." },
+        { status: 403 },
+      );
     }
     // A private decision can't have a public link.
     if (data.visibility === "private" && existing.shareToken) {

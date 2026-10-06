@@ -1,6 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { decisionVisibilityWhere } from "@/lib/tenant";
+import { actionItemVisibilityWhere, decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect } from "next/navigation";
 import { KanbanBoard } from "./kanban-board";
 import { PageHeader } from "@/components/layout/page-header";
@@ -13,7 +13,7 @@ export default async function BoardPage() {
 
   const [items, members, decisions] = await Promise.all([
     prisma.actionItem.findMany({
-      where: { workspaceId: session.workspaceId },
+      where: actionItemVisibilityWhere(session),
       orderBy: [{ priority: "desc" }, { dueDate: "asc" }, { createdAt: "asc" }],
       include: {
         assignee:  { select: { id: true, name: true } },

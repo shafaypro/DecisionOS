@@ -1,6 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { decisionVisibilityWhere } from "@/lib/tenant";
+import { actionItemVisibilityWhere, decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ export default async function MyWorkPage() {
     // My open action items
     prisma.actionItem.findMany({
       where: {
-        workspaceId: session.workspaceId,
+        ...actionItemVisibilityWhere(session),
         assigneeId: session.userId,
         status: { notIn: ["done", "cancelled"] },
       },
@@ -41,7 +41,7 @@ export default async function MyWorkPage() {
     // Overdue items assigned to me
     prisma.actionItem.findMany({
       where: {
-        workspaceId: session.workspaceId,
+        ...actionItemVisibilityWhere(session),
         assigneeId: session.userId,
         status: { notIn: ["done", "cancelled"] },
         dueDate: { lt: now },

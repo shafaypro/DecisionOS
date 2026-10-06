@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
-import { sameWorkspace } from "@/lib/tenant";
+import { visibleDecision } from "@/lib/tenant";
 
 export const GET = withApi<undefined, { id: string }>({ require: "auth" }, async ({ session, params }) => {
-  const decision = sameWorkspace(
-    await prisma.decision.findUnique({ where: { id: params.id }, select: { id: true, workspaceId: true } }),
+  const decision = visibleDecision(
+    await prisma.decision.findUnique({ where: { id: params.id }, select: { id: true, workspaceId: true, visibility: true, createdByUserId: true } }),
     session,
   );
   if (!decision) return NextResponse.json({ error: "Decision not found." }, { status: 404 });

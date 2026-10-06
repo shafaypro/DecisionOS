@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Row } from "./row";
 import { Row as ListRow } from "@/components/ui/row";
 import { Text } from "@/components/ui/text";
-import { Plus, Check, Pencil } from "lucide-react";
+import { Plus, Check, Pencil, Lock, Users } from "lucide-react";
 import { TEXT_SIZE } from "@/lib/typography";
 import { cn, STATUS_COLORS, STATUSES, getLabelForValue } from "@/lib/utils";
 
@@ -32,7 +32,7 @@ const editAffordance = (
 const EDITABLE_ROW = "px-0 text-slate-600 hover:text-slate-800";
 
 /** Never throws: a network failure or non-JSON reply comes back as `{ error }`. */
-async function patchField(id: string, field: string, value: string | null): Promise<{ error?: string }> {
+async function patchField(id: string, field: string, value: unknown): Promise<{ error?: string }> {
   try {
     const res = await fetch(`/api/decisions/${id}`, {
       method: "PUT",
@@ -497,5 +497,120 @@ export function EditableDate({
         </div>
       }
     />
+  );
+}
+
+/**
+ * The people consulted on a decision, as removable chips plus an "add" picker.
+ * Saves the whole list on each change - it's small and order doesn't matter.
+ */
+export function EditableConsulted({
+  decisionId, value, members,
+}: {
+  decisionId: string;
+  value: string[];
+  members: { value: string; label: string }[];
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [ids, setIds] = useState(value);
+  const [saving, setSaving] = useState(false);
+  const [prev, setPrev] = useState(value);
+  if (value !== prev) {
+    setPrev(value);
+    setIds(value);
+  }
+
+  async function save(next: string[]) {
+    const before = ids;
+    setIds(next);
+    setSaving(true);
+    const data = await patchField(decisionId, "consultedIds", next);
+    setSaving(false);
+    if (data.error) { toast.error(data.error); setIds(before); }
+    else router.refresh();
+  }
+
+  const nameOf = (id: string) => members.find((m) => m.value === id)?.label ?? "Former member";
+  const addable = members.filter((m) => !ids.includes(m.value));
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <Users className="h-3.5 w-3.5 text-text-subtle" aria-hidden />
+        <Text size="xs" color="muted">Consulted</Text>
+      </div>
+      {ids.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5" aria-label="Consulted">
+          {ids.map((id) => (
+            <li key={id} className="inline-flex h-6 items-center gap-1 rounded-full border border-slate-200 bg-white pl-2 pr-1">
+              <Text size="xs" color="secondary">{nameOf(id)}</Text>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => save(ids.filter((x) => x !== id))}
+                aria-label={`Remove ${nameOf(id)} from consulted`}
+                className="rounded-full p-0.5 text-slate-400 hover:text-slate-700 disabled:opacity-30"
+              >
+                <Plus className="h-3 w-3 rotate-45" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {addable.length > 0 && (
+        <select
+          aria-label="Add a person consulted"
+          value=""
+          disabled={saving}
+          onChange={(e) => e.target.value && save([...ids, e.target.value])}
+          className="h-7 w-full rounded-xs bg-white px-2 text-xs text-text-secondary shadow-soft focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">+ Add someone consulted…</option>
+          {addable.map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
+/** Workspace / private switch. Only the author (or an admin) may change it. */
+export function EditableVisibility({ decisionId, value }: { decisionId: string; value: string }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
+  const isPrivate = value !== "workspace";
+
+  async function toggle() {
+    const next = isPrivate ? "workspace" : "private";
+    if (
+      next === "private" &&
+      !confirm("Make this decision private? Only you will be able to see it, and any public link is revoked.")
+    ) return;
+    setSaving(true);
+    const data = await patchField(decisionId, "visibility", next);
+    setSaving(false);
+    if (data.error) toast.error(data.error);
+    else {
+      toast.success(next === "private" ? "Only you can see this decision now" : "Visible to the whole workspace");
+      router.refresh();
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={saving}
+      className="inline-flex items-center gap-1.5 rounded-xs text-left text-slate-600 hover:text-slate-800 disabled:opacity-50"
+    >
+      {isPrivate ? <Lock className="h-3.5 w-3.5 text-amber-600" /> : <Users className="h-3.5 w-3.5 text-text-subtle" />}
+      <Text size="sm" color="inherit">
+        {isPrivate ? "Private - only you" : "Visible to workspace"}
+      </Text>
+      <Text size="xs" color="subtle">· {isPrivate ? "Share with workspace" : "Make private"}</Text>
+    </button>
   );
 }

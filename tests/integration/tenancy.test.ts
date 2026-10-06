@@ -46,6 +46,7 @@ import { GET as versionsGET } from "@/app/api/decisions/[id]/versions/route";
 import { POST as bulkPOST } from "@/app/api/decisions/bulk/route";
 import { GET as similarGET } from "@/app/api/decisions/similar/route";
 import { GET as exportGET } from "@/app/api/decisions/export/route";
+import { GET as actionItemsGET } from "@/app/api/action-items/route";
 import { withApi } from "@/lib/api-handler";
 import { __resetAccessCache } from "@/lib/access-control";
 
@@ -321,7 +322,50 @@ describe("decision graph - relations / supersede / versions tenancy & authz", ()
     sessionFor(ctx.aAdmin, ctx.wsA, "admin");
     expect((await relationsPOST(jsonReq({ toDecisionId: ctx.dApublic, relationType: "relates_to" }), withParams(ctx.dApublic))).status).toBe(400);
     expect((await relationsPOST(jsonReq({ toDecisionId: ctx.dB, relationType: "relates_to" }), withParams(ctx.dApublic))).status).toBe(404);
+    // Someone else's private decision is invisible to an admin too - same as search.
+    expect((await relationsPOST(jsonReq({ toDecisionId: ctx.dAprivate, relationType: "relates_to" }), withParams(ctx.dApublic))).status).toBe(404);
+
+    // Its author can link to it.
+    sessionFor(ctx.aMember, ctx.wsA, "member");
     expect((await relationsPOST(jsonReq({ toDecisionId: ctx.dAprivate, relationType: "relates_to" }), withParams(ctx.dApublic))).status).toBe(200);
+  });
+
+  it("private decisions: other members can't read, edit, or annotate them (404)", async () => {
+    sessionFor(ctx.aAdmin, ctx.wsA, "admin");
+    expect((await decisionsPUT(jsonReq({ title: "Peeked" }), withParams(ctx.dAprivate))).status).toBe(404);
+    expect((await notesPOST(jsonReq({ decisionId: ctx.dAprivate, content: "hi" }))).status).toBe(404);
+    expect((await versionsGET(jsonReq(), withParams(ctx.dAprivate))).status).toBe(404);
+    expect((await relationsGET(jsonReq(), withParams(ctx.dAprivate))).status).toBe(404);
+    expect((await watchPOST(jsonReq(), withParams(ctx.dAprivate))).status).toBe(404);
+
+    // The author still can.
+    sessionFor(ctx.aMember, ctx.wsA, "member");
+    expect((await versionsGET(jsonReq(), withParams(ctx.dAprivate))).status).toBe(200);
+  });
+
+  it("action items on someone else's private decision are hidden", async () => {
+    const item = await prisma.actionItem.create({
+      data: { workspaceId: ctx.wsA, decisionId: ctx.dAprivate, createdById: ctx.aMember, title: `${MARK} private follow-up` },
+    });
+    const titles = async () =>
+      ((await (await actionItemsGET(new NextRequest("http://localhost/api/action-items"))).json()) as {
+        items: { title: string }[];
+      }).items.map((i) => i.title);
+
+    sessionFor(ctx.aAdmin, ctx.wsA, "admin");
+    expect(await titles()).not.toContain(item.title);
+    sessionFor(ctx.aMember, ctx.wsA, "member");
+    expect(await titles()).toContain(item.title);
+  });
+
+  it("visibility can only be changed by the author or an admin", async () => {
+    const d = await prisma.decision.create({
+      data: { workspaceId: ctx.wsA, createdByUserId: ctx.aAdmin, title: `${MARK} vis-owner`, visibility: "workspace" },
+    });
+    sessionFor(ctx.aMember, ctx.wsA, "member");
+    expect((await decisionsPUT(jsonReq({ visibility: "private" }), withParams(d.id))).status).toBe(403);
+    sessionFor(ctx.aAdmin, ctx.wsA, "admin");
+    expect((await decisionsPUT(jsonReq({ visibility: "private" }), withParams(d.id))).status).toBe(200);
   });
 
   it("supersede: cannot supersede across tenants (404); valid within workspace (200)", async () => {

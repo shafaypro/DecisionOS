@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { notifyDecisionWatchers } from "@/lib/notify-watchers";
 import { withApi } from "@/lib/api-handler";
-import { sameWorkspace } from "@/lib/tenant";
+import { visibleDecision } from "@/lib/tenant";
 import { NoteWriteSchema, NoteDeleteSchema, type NoteWriteInput, type NoteDeleteInput } from "@/lib/schemas";
 
 export const POST = withApi<NoteWriteInput>(
   { require: "writer", schema: NoteWriteSchema },
   async ({ session, body }) => {
     const { decisionId, content } = body;
-    const decision = sameWorkspace(
+    const decision = visibleDecision(
       await prisma.decision.findUnique({ where: { id: decisionId } }),
       session,
     );

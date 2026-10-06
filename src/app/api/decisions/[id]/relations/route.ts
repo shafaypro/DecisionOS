@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
-import { sameWorkspace, type TenantSession } from "@/lib/tenant";
+import { visibleDecision, type TenantSession } from "@/lib/tenant";
 import {
   RelationCreateSchema, RelationDeleteSchema,
   type RelationCreateInput, type RelationDeleteInput,
@@ -11,8 +11,8 @@ type Params = { id: string };
 
 function findDecisionWs(id: string, session: TenantSession) {
   return prisma.decision
-    .findUnique({ where: { id }, select: { id: true, workspaceId: true } })
-    .then((d) => sameWorkspace(d, session));
+    .findUnique({ where: { id }, select: { id: true, workspaceId: true, visibility: true, createdByUserId: true } })
+    .then((d) => visibleDecision(d, session));
 }
 
 export const GET = withApi<undefined, Params>({ require: "auth" }, async ({ session, params }) => {
@@ -42,12 +42,12 @@ export const POST = withApi<RelationCreateInput, Params>(
       return NextResponse.json({ error: "A decision cannot relate to itself." }, { status: 400 });
 
     const [from, to] = await Promise.all([
-      prisma.decision.findUnique({ where: { id }, select: { workspaceId: true } }),
-      prisma.decision.findUnique({ where: { id: toDecisionId }, select: { workspaceId: true } }),
+      prisma.decision.findUnique({ where: { id }, select: { workspaceId: true, visibility: true, createdByUserId: true } }),
+      prisma.decision.findUnique({ where: { id: toDecisionId }, select: { workspaceId: true, visibility: true, createdByUserId: true } }),
     ]);
-    if (!sameWorkspace(from, session))
+    if (!visibleDecision(from, session))
       return NextResponse.json({ error: "Decision not found." }, { status: 404 });
-    if (!sameWorkspace(to, session))
+    if (!visibleDecision(to, session))
       return NextResponse.json({ error: "Target decision not found or not in workspace." }, { status: 404 });
 
     try {

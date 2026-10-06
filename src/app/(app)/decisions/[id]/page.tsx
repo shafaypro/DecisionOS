@@ -1,6 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { decisionVisibilityWhere } from "@/lib/tenant";
+import { decisionVisibilityWhere, visibleDecision } from "@/lib/tenant";
 import { shareUrl } from "@/lib/share-link";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
@@ -17,10 +17,15 @@ import { Row } from "./row";
 import { DecisionActions } from "./decision-actions";
 import { WatchButton } from "./watch-button";
 import { TagPicker } from "./tag-picker";
+import { ActionItems } from "./action-items";
+import { RemoveRelationButton } from "./remove-relation-button";
 import { ReactionsBar } from "./reactions-bar";
-import { EditableText, EditableField, EditablePill, EditableStatus, EditableSelect, EditableDate } from "./editable";
 import {
-  User, Calendar, Clock, Download,
+  EditableText, EditableField, EditablePill, EditableStatus, EditableSelect, EditableDate,
+  EditableConsulted, EditableVisibility,
+} from "./editable";
+import {
+  User, UserCheck, Calendar, Clock, Download,
   ExternalLink, Activity, Network,
 } from "lucide-react";
 import {
@@ -158,10 +163,22 @@ export default async function DecisionDetailPage({ params }: PageProps) {
           take: 20,
         },
         relationsFrom: {
-          include: { toDecision: { select: { id: true, title: true, status: true } } },
+          include: {
+            toDecision: { select: { id: true, title: true, status: true, workspaceId: true, visibility: true, createdByUserId: true } },
+          },
         },
         relationsTo: {
-          include: { fromDecision: { select: { id: true, title: true, status: true } } },
+          include: {
+            fromDecision: { select: { id: true, title: true, status: true, workspaceId: true, visibility: true, createdByUserId: true } },
+          },
+        },
+        actionItems: {
+          select: {
+            id: true, title: true, status: true, priority: true, dueDate: true,
+            assignee: { select: { id: true, name: true } },
+          },
+          where: { status: { not: "cancelled" } },
+          orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
         },
         reactions: {
           include: { user: { select: { id: true, name: true } } },
@@ -194,6 +211,25 @@ export default async function DecisionDetailPage({ params }: PageProps) {
   ) {
     notFound();
   }
+
+  // Don't reveal the titles of other people's private decisions through links.
+  const relationsFrom = decision.relationsFrom.filter((r) => visibleDecision(r.toDecision, session));
+  const relationsTo = decision.relationsTo.filter((r) => visibleDecision(r.fromDecision, session));
+  const canRemoveRelation = (r: { createdByUserId: string }) =>
+    !isViewer && (r.createdByUserId === session.userId || session.role === "admin");
+  const canChangeVisibility =
+    !isViewer && (decision.createdByUserId === session.userId || session.role === "admin");
+  const consultedIds: string[] = (() => {
+    try {
+      const parsed = JSON.parse(decision.consultedIds ?? "[]");
+      return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  })();
+  const memberOptions = memberships.map((m) => ({ value: m.user.id, label: m.user.name }));
+  const nameOfMember = (userId: string | null) =>
+    memberships.find((m) => m.user.id === userId)?.user.name ?? null;
 
   const watcher = await prisma.decisionWatcher.findUnique({
     where: { decisionId_userId: { decisionId: id, userId: session.userId } },
@@ -360,6 +396,18 @@ export default async function DecisionDetailPage({ params }: PageProps) {
               )}
           </Row>
 
+          <Row label="Action items">
+            <ActionItems
+              decisionId={id}
+              readOnly={isViewer}
+              members={memberships.map((m) => m.user)}
+              items={decision.actionItems.map((i) => ({
+                ...i,
+                dueDate: i.dueDate ? i.dueDate.toISOString() : null,
+              }))}
+            />
+          </Row>
+
           {/* Relations - label + add trigger */}
           {!isViewer && (
             <Row label="Relations">
@@ -478,7 +526,24 @@ export default async function DecisionDetailPage({ params }: PageProps) {
                   value={decision.ownerUserId}
                   placeholder="No owner"
                   icon={<User className="h-3.5 w-3.5 text-text-subtle" />}
-                  options={memberships.map((m) => ({ value: m.user.id, label: m.user.name }))}
+                  options={memberOptions}
+                />
+              )}
+              {isViewer ? (
+                decision.accountableUserId && (
+                  <span className="flex items-center gap-1.5">
+                    <UserCheck className="h-3.5 w-3.5 text-text-subtle" />
+                    <Text color="secondary">Accountable: {nameOfMember(decision.accountableUserId) ?? "Former member"}</Text>
+                  </span>
+                )
+              ) : (
+                <EditableSelect
+                  decisionId={id}
+                  field="accountableUserId"
+                  value={decision.accountableUserId}
+                  placeholder="No one accountable (DRI)"
+                  icon={<UserCheck className="h-3.5 w-3.5 text-text-subtle" aria-label="Accountable" />}
+                  options={memberOptions.map((o) => ({ ...o, label: `Accountable: ${o.label}` }))}
                 />
               )}
             </div>
@@ -514,6 +579,26 @@ export default async function DecisionDetailPage({ params }: PageProps) {
                 prefix="Review:"
               />
             )}
+
+            <div className="pt-3">
+              {isViewer ? (
+                consultedIds.length > 0 && (
+                  <Text as="p" size="sm" color="secondary">
+                    Consulted: {consultedIds.map((cid) => nameOfMember(cid) ?? "Former member").join(", ")}
+                  </Text>
+                )
+              ) : (
+                <EditableConsulted decisionId={id} value={consultedIds} members={memberOptions} />
+              )}
+            </div>
+
+            <div className="pt-3">
+              {canChangeVisibility ? (
+                <EditableVisibility decisionId={id} value={decision.visibility} />
+              ) : (
+                decision.visibility !== "workspace" && <Text size="sm" color="secondary">Private</Text>
+              )}
+            </div>
           </div>
 
           {/* Record quality - how well this decision is written down, and the
@@ -560,24 +645,26 @@ export default async function DecisionDetailPage({ params }: PageProps) {
           </Section>
 
           {/* Decision relations (inline list) */}
-          {(decision.relationsFrom.length > 0 || decision.relationsTo.length > 0) && (
+          {(relationsFrom.length > 0 || relationsTo.length > 0) && (
             <div id="relations">
               <Section title="Related decisions">
               <div className="space-y-1.5">
-                {decision.relationsFrom.map((r) => (
-                  <div key={r.id}>
+                {relationsFrom.map((r) => (
+                  <div key={r.id} className="group">
                     <Text>{getLabelForValue(RELATION_TYPES, r.relationType)}: </Text>
                     <Link href={`/decisions/${r.toDecision.id}`} className="hover:underline inline">
                       <Text>{r.toDecision.title}</Text>
                     </Link>
+                    {canRemoveRelation(r) && <RemoveRelationButton decisionId={id} relationId={r.id} />}
                   </div>
                 ))}
-                {decision.relationsTo.map((r) => (
-                  <div key={r.id}>
+                {relationsTo.map((r) => (
+                  <div key={r.id} className="group">
                     <Text>{INBOUND_RELATION_LABELS[r.relationType] ?? "Referenced by"}: </Text>
                     <Link href={`/decisions/${r.fromDecision.id}`} className="hover:underline inline">
                       <Text>{r.fromDecision.title}</Text>
                     </Link>
+                    {canRemoveRelation(r) && <RemoveRelationButton decisionId={id} relationId={r.id} />}
                   </div>
                 ))}
               </div>
