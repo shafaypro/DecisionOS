@@ -132,6 +132,7 @@ this section lists the fields that matter most per model.
 | Field | Type | Description |
 |---|---|---|
 | `status` | String | `active` / `suspended` - lifecycle set by the platform console; suspended workspaces lock out their members (see [Platform admin](../PLATFORM_ADMIN.md)) |
+| `publicSharing` | Boolean | Whether members may create public read-only links (default `true`). Turning it off clears every decision's `shareToken`. |
 
 ### Decision
 
@@ -143,7 +144,8 @@ this section lists the fields that matter most per model.
 | `status` | String | `draft` / `proposed` / `in_review` / `approved` / `reversed` / `superseded` / `archived` |
 | `outcomeStatus` | String| `unknown` / `successful` / `mixed` / `unsuccessful` |
 | `impactLevel` | String | `low` / `medium` / `high` |
-| `visibility` | String | `workspace` (all members) / `private` (creator only) |
+| `visibility` | String | `workspace` (all members) / `private` (creator only). Enforced on every read and write by `decisionVisibilityWhere` / `visibleDecision` in `src/lib/tenant.ts`; only the creator or an admin may change it |
+| `shareToken` | String? (unique) | Random token for the public page at `/share/<token>`. Null means not shared; set and cleared from the decision's Share panel |
 | `ownerUserId` | String| Responsible person (FK → User) |
 | `problemStatement` | String| What problem prompted this decision? |
 | `chosenOption` | String| What specific option was selected? |
@@ -173,4 +175,4 @@ this section lists the fields that matter most per model.
 
 ### DecisionEvent types (audit log)
 
-`created` · `updated` · `status_changed` · `note_added` · `link_added` · `reviewed`
+`created` · `updated` · `status_changed` · `note_added` · `link_added` · `reviewed` · `share_enabled` · `share_revoked`

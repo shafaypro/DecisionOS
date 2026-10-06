@@ -145,10 +145,17 @@ The first admin can:
 
 ---
 
-## 7. Email (review reminders and weekly digest)
+## 7. Email (invitations, password resets, review reminders, weekly digest)
 
 Without SMTP set, email calls log to the console - you can test the flow in
-dev without sending real mail.
+dev without sending real mail. `.env.example` leaves the SMTP block commented
+out for that reason. In that mode, inviting a teammate shows the admin a
+set-password link to send themselves, and password-reset links are written to
+the server log in development.
+
+Every link in an email is built from `NEXT_PUBLIC_APP_URL`, so set it to your
+real `https://` origin in production. The send has a 10-second connection
+timeout, so a wrong host fails fast instead of stalling the request.
 
 ### 7a. Gmail (easy, dev)
 

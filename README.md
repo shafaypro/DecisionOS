@@ -86,15 +86,18 @@ Then sign in with the seeded demo accounts:
 | **Search Query Language** | One box, GitHub-style filters - `status:approved owner:me tag:infra impact:high -status:archived after:30d is:overdue "primary database"`. Unknown filters degrade to text with a warning instead of returning nothing. See [search syntax](docs/SEARCH.md) |
 | **Reviews Page** | Dedicated page showing overdue reviews, upcoming reviews, and review history across the workspace |
 | **Dashboard Analytics** | Live stats - active decisions, due-for-review, recently reviewed, reversals; recent activity feed; high-impact decisions |
-| **Private Decisions** | A decision marked private is visible only to its author - in lists, search, Ask, the graph, reviews, exports, and its own page |
-| **Public Share Page** | Generate a read-only shareable URL (`/share/:id`) for any workspace-visible decision - no login required |
+| **Private Decisions** | Mark a decision private on the form or its page and only its author can see it - in lists, search, Ask, the graph, reviews, the board, exports, and every API route |
+| **Public Share Links** | Opt-in and revocable: create a read-only link (`/share/<random-token>`) for one decision from its Share panel, revoke it anytime, and let admins switch public links off for the whole workspace |
+| **Action Items** | Track the follow-through on each decision from its page - assignee, due date, tick to complete - and across the workspace on a kanban board and in My work |
+| **Accountability** | Owner, accountable (DRI), and consulted people on every decision, all editable inline |
 | **CSV Export** | One-click export of all decisions to a dated `.csv` file with 23 columns including tags, review counts, and all reasoning fields |
 | **Markdown / ADR Export** | Export one decision as an ADR-shaped `.md` file (YAML front matter, context → decision → consequences) to commit next to the code it governs, or the whole log as one bundle with a table of contents |
 | **JSON Export** | Versioned envelope (`schemaVersion`, workspace, decisions with tags, links, and full review history) for backup and migration - no screen-scraping |
 | **Record Quality Score** | Weighted completeness score per decision (rationale and alternatives weigh most) with the highest-value missing fields listed as next actions; rolled up per workspace |
 | **Risk Register** | Every recorded risk and assumption across active decisions in one page, ranked by impact and by whether anyone has re-checked the decision lately |
 | **Markdown Rendering** | Decision fields, notes, and reviews render Markdown - headings, lists, quotes, code, links - through an escape-first renderer with no parser dependency |
-| **Team Management** | Admins can invite members by email (creates an account if none exists), choose their role (Viewer / Member / Admin) at invite time, and view all workspace members |
+| **Team Management** | Admins invite by email - the invitee gets a single-use set-password link (or the admin gets it to share when email isn't configured) - change roles, and remove members; the last admin is protected and demotions apply immediately |
+| **Password Reset** | Self-service "Forgot password" with single-use, one-hour links |
 | **Workspace Settings** | Admins can update the workspace name and slug |
 | **Audit Log** | Every significant mutation (create, update, status change, note added, link added, reviewed) emits a `DecisionEvent` record |
 | **Multi-tenant Workspaces** | Every user belongs to a workspace; all data is strictly scoped by `workspaceId` |
@@ -107,8 +110,9 @@ Then sign in with the seeded demo accounts:
 | **Version History** | Every edit snapshots the before-state; `/decisions/:id/history` shows a full field-diff timeline |
 | **Emoji Reactions** | Six curated emoji reactions per decision (`👍 👎 👀 ⚠️ 🚀 ❓`) - one toggle per user per emoji |
 | **Atomic Supersede** | Supersede flow wraps relation-create + status-flip + audit event in a DB transaction - no partial state |
+| **AI Framing Suggestions** | With a model key configured, "Suggest framing with AI" on the new-decision form drafts the problem, alternatives, assumptions, and risks into empty fields - never the rationale, which has to come from the people who decided |
 | **Ask DecisionOS** | Natural-language Q&A over your decision log - ask *"why did we move off Auth0?"* and get an answer **grounded in and cited to the actual decision records**, with one-click jump-to-source. Falls back to ranked semantic retrieval when no AI key is configured, so it's useful on day one |
-| **Command Palette** | `⌘K` / `Ctrl+K` global search with quick-capture mode - type a title, press Tab, add rationale, and log a decision without leaving the palette |
+| **Command Palette** | `⌘K` / `Ctrl+K` global search with quick-capture mode - type a title, press Tab, add rationale, and log a decision (as proposed, unless you tick "already decided") without leaving the palette |
 | **Keyboard Shortcuts** | Press `?` anywhere for the cheatsheet; `c` to create, `g d/r/k/a/t/s` to navigate, `Esc` to close overlays |
 | **Slack Capture Bot** | `/decisionos log` slash command + 🔒 emoji trigger open a Block Kit modal - decisions log in 15 seconds from Slack |
 | **Review-Due Slack DMs** | Nightly cron sends Slack DMs + emails to decision owners when reviews are overdue; weekly Monday digest email per user |
@@ -178,7 +182,11 @@ How it's put together - the layered model, request flows, data model, API refere
 - [x] Kanban board, My Work, activity feed, in-app notifications, and decision watching
 - [x] Comment threads on notes (replies) - threaded replies with inline composer on the decision detail page
 
-**Next up** - invite links and password reset, opt-in public sharing, decision-page action items, and more. The full product evaluation and the prioritized plan live in **[docs/ROADMAP.md](docs/ROADMAP.md)**; issues tagged `good first issue` are carved out of it.
+- [x] Invitations with set-password links, password reset, and role management
+- [x] Opt-in, revocable public share links with a workspace-level switch
+- [x] Action items, accountability (DRI / consulted), and visibility controls on the decision page
+
+**Next up** - pagination for large logs, ADR import, PR/issue link unfurling, outgoing webhooks, and an MCP server so coding agents can cite past decisions. The product evaluation and the prioritized plan live in **[docs/ROADMAP.md](docs/ROADMAP.md)**; issues tagged `good first issue` are carved out of it.
 
 ---
 

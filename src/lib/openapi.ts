@@ -49,7 +49,11 @@ const DECISION_SCHEMA: Json = {
     },
     outcomeStatus: { type: "string", enum: ["unknown", "successful", "mixed", "unsuccessful"] },
     impactLevel: { type: "string", enum: ["low", "medium", "high"] },
-    visibility: { type: "string", enum: ["workspace", "private"] },
+    visibility: {
+      type: "string",
+      enum: ["workspace", "private"],
+      description: "Private decisions are visible only to their author. Only the author or an admin can change this.",
+    },
     problemStatement: { type: "string", nullable: true },
     chosenOption: { type: "string", nullable: true },
     rationale: { type: "string", nullable: true },
@@ -68,6 +72,7 @@ export const DOCUMENTED_PATHS = [
   "/api/decisions",
   "/api/decisions/{id}",
   "/api/decisions/{id}/markdown",
+  "/api/decisions/{id}/share",
   "/api/decisions/search",
   "/api/decisions/export",
   "/api/decisions/notes",
@@ -75,6 +80,9 @@ export const DOCUMENTED_PATHS = [
   "/api/action-items",
   "/api/tags",
   "/api/analytics/trends",
+  "/api/team",
+  "/api/team/{id}",
+  "/api/settings/sharing",
 ] as const;
 
 export interface OpenApiOptions {
@@ -103,6 +111,8 @@ export function buildOpenApiDocument({ baseUrl, version = "0.1.0" }: OpenApiOpti
       { name: "Work", description: "Action items generated from decisions." },
       { name: "Insight", description: "Derived analytics over the log." },
       { name: "Ops", description: "Health and operational endpoints." },
+      { name: "Sharing", description: "Opt-in public read-only links." },
+      { name: "Team", description: "Members, invitations, and roles (admin only)." },
     ],
     components: {
       securitySchemes: {
@@ -181,6 +191,135 @@ export function buildOpenApiDocument({ baseUrl, version = "0.1.0" }: OpenApiOpti
             },
             "404": errorResponse("No such decision in this workspace."),
             ...COMMON_ERRORS,
+          },
+        },
+      },
+      "/api/decisions/{id}/share": {
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" } },
+        ],
+        post: {
+          tags: ["Sharing"],
+          summary: "Create (or return) the decision's public read-only link",
+          description:
+            "Idempotent. The link is /share/<token> with a random token, never the decision id. " +
+            "Refused for private decisions and when the workspace has public links turned off.",
+          responses: {
+            ...COMMON_ERRORS,
+            "200": {
+              description: "The public URL.",
+              content: { "application/json": { schema: { type: "object", properties: { url: { type: "string" } } } } },
+            },
+            "400": errorResponse("The decision is private."),
+            "403": errorResponse("Viewer role, or public links are off for this workspace."),
+            "404": errorResponse("No such decision visible to you."),
+          },
+        },
+        delete: {
+          tags: ["Sharing"],
+          summary: "Revoke the public link",
+          description: "The old URL stops working immediately. Sharing again issues a new token.",
+          responses: {
+            ...COMMON_ERRORS,
+            "200": { description: "Revoked (or was not shared)." },
+            "404": errorResponse("No such decision visible to you."),
+          },
+        },
+      },
+      "/api/settings/sharing": {
+        put: {
+          tags: ["Sharing"],
+          summary: "Allow or disallow public links for the workspace (admin)",
+          description: "Turning links off revokes every existing link; turning them back on doesn't restore them.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { type: "object", required: ["publicSharing"], properties: { publicSharing: { type: "boolean" } } },
+              },
+            },
+          },
+          responses: {
+            ...COMMON_ERRORS,
+            "200": { description: "Saved." },
+            "403": errorResponse("Not an admin."),
+          },
+        },
+      },
+      "/api/team": {
+        post: {
+          tags: ["Team"],
+          summary: "Invite someone to the workspace (admin)",
+          description:
+            "A new address gets an account and a 7-day set-password link by email. When email isn't configured, " +
+            "the link comes back as `inviteUrl` for the admin to pass on. An existing account is added without a link.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["email"],
+                  properties: {
+                    email: { type: "string", format: "email" },
+                    role: { type: "string", enum: ["admin", "member", "viewer"] },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            ...COMMON_ERRORS,
+            "200": {
+              description: "Invited.",
+              content: {
+                "application/json": {
+                  schema: { type: "object", properties: { success: { type: "string" }, inviteUrl: { type: "string" } } },
+                },
+              },
+            },
+            "400": errorResponse("Already a member, or invalid input."),
+            "403": errorResponse("Not an admin."),
+          },
+        },
+      },
+      "/api/team/{id}": {
+        parameters: [
+          { name: "id", in: "path", required: true, description: "Membership id", schema: { type: "string" } },
+        ],
+        patch: {
+          tags: ["Team"],
+          summary: "Change a member's role (admin)",
+          description: "The workspace always keeps at least one admin. A demotion applies on the member's next request.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["role"],
+                  properties: { role: { type: "string", enum: ["admin", "member", "viewer"] } },
+                },
+              },
+            },
+          },
+          responses: {
+            ...COMMON_ERRORS,
+            "200": { description: "Role changed." },
+            "400": errorResponse("Would leave the workspace without an admin, or invalid role."),
+            "403": errorResponse("Not an admin."),
+            "404": errorResponse("No such member in this workspace."),
+          },
+        },
+        delete: {
+          tags: ["Team"],
+          summary: "Remove a member (admin)",
+          responses: {
+            ...COMMON_ERRORS,
+            "200": { description: "Removed. Their decisions, notes, and reviews stay." },
+            "400": errorResponse("Would remove the last admin."),
+            "403": errorResponse("Not an admin."),
+            "404": errorResponse("No such member in this workspace."),
           },
         },
       },

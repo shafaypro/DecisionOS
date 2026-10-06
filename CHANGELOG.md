@@ -8,6 +8,27 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Invitations people can accept.** Inviting a new address emails a
+  single-use, 7-day set-password link. Without SMTP, the admin sees the link
+  to pass on. The invitee picks a name and password and is signed straight
+  in. Previously the account got a random password that was never sent.
+- **Password reset.** "Forgot password" on the sign-in page sends a
+  single-use, one-hour link and answers the same whether or not the account
+  exists.
+- **Role management.** Admins change roles and remove members from /team. The
+  last admin is protected. API authorization also checks the live role, so a
+  demotion applies on the member's next request.
+- **Opt-in public sharing.** A decision becomes public only when someone
+  creates a link from its Share panel. The link is `/share/<random-token>`
+  and can be revoked. Admins can switch public links off workspace-wide,
+  which revokes them all. Public pages are `noindex`.
+- **On the decision page:** action items (add, assign, tick done), removing
+  relations, accountable (DRI) and consulted people, and a private/workspace
+  switch for the author. The new-decision form gains a Private option.
+- **Suggest framing with AI** on the new-decision form when a model is
+  configured. It fills empty problem, alternatives, assumptions, and risks
+  fields, never the rationale.
+- OpenAPI documents the sharing and team endpoints.
 - **Category, impact, and summary on the new-decision form**, and inline editing
   of all three on the decision page. Previously the web form never sent them,
   so every web-created decision landed as "Other" / "Medium" with no way to
@@ -61,6 +82,20 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Breaking:** `/share/<decision-id>` URLs no longer work. Public pages are
+  served only for decisions someone explicitly shared, at a random token URL.
+- About a dozen decision API routes (notes, replies, reviews, links,
+  relations, versions, watch, archive, tags, action items, and
+  `PUT /api/decisions/:id`) checked only the workspace, so any member who
+  knew a private decision's id could read or edit it. They now return 404.
+  "Related decisions", the board, My work, and `GET /api/action-items` no
+  longer reveal the titles of other people's private decisions.
+- Only a decision's author or an admin can change its visibility.
+- Dependencies: next 16.3.8 (critical advisory), nodemailer 10, and a
+  webpack-dev-middleware override, plus transitive fixes. The CI audit now
+  blocks on high or critical advisories in production dependencies and on
+  critical ones anywhere.
+
 - **Private decisions are now private everywhere.** The decisions list, the
   decision and history pages, reviews, the graph, the board, and My work
   ignored `visibility`, so a private decision was readable by the whole
@@ -77,6 +112,19 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   decision inside the caller's workspace.
 
 ### Fixed
+
+- `.env.example` shipped active placeholder SMTP settings, so every
+  email-sending request in a fresh setup waited on an unreachable server.
+  SMTP is commented out by default, and sends now time out after 10 seconds.
+  `NEXT_PUBLIC_APP_URL` defaults to `http://localhost:3001`, not a placeholder
+  domain.
+- Signed-in members opening a `/share/...` or set-password link were
+  redirected away.
+- Quick capture (Cmd/Ctrl+K) logs decisions as *proposed* unless marked
+  already decided. Archived decisions are out of the default list. Failed
+  board moves and deletes roll back. The board's decision picker lists every
+  decision.
+- Signup keeps what you typed after a server-side error.
 
 - Status vocabulary drift: `draft` (written by "Save as draft") was missing from
   the status list, and the demo seeds wrote legacy values (`decided`,

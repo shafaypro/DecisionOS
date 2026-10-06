@@ -30,8 +30,8 @@ the API routes they call.
 
 ## What the evaluation found (and fixed)
 
-These were fixed in the change that added this page. See `CHANGELOG.md` for
-the details.
+These were fixed in the change that added this page; later fixes are under
+"Shipped since the evaluation" below. See `CHANGELOG.md` for the details.
 
 | Area | Problem | Status |
 |---|---|---|
@@ -52,76 +52,68 @@ the details.
 Priorities: **P0** blocks a real team from adopting the product. **P1** is a
 visible gap in a core flow. **P2** is polish or reach.
 
-### P0: adoption blockers
+### Shipped since the evaluation
 
-1. **Invites people can actually accept.** `POST /api/team` creates the account
-   with a random password that is never sent, and there is no reset flow.
-   Without SSO, an invitee cannot sign in. Plan:
-   - single-use invite tokens (reuse `lib/review-token.ts` signing) emailed via
-     `lib/email.ts`;
-   - a `/invite/[token]` page that sets a password;
-   - "Forgot password" on `/login` using the same token flow;
-   - while SMTP is not configured, show the invite link to the admin so they
-     can share it themselves.
-2. **Public sharing should be opt-in.** `/share/[id]` currently serves any
-   workspace-visible decision without login. Plan:
-   - a per-decision "Share publicly" toggle that stores a random share token,
-     so the URL is not just the decision id;
-   - revoke that link from the decision page;
-   - a workspace-level setting to disable public sharing entirely.
+| Was | Now |
+|---|---|
+| **P0** Invited users couldn't sign in (random password, no reset) | Single-use set-password links by email, or shown to the admin when email isn't configured; "Forgot password"; invitees sign straight in |
+| **P0** Every workspace-visible decision was public at `/share/<id>` | Opt-in links at `/share/<random-token>`, revocable from the decision's Share panel; an admin switch turns them off (and revokes them) workspace-wide |
+| **P1** Action items lived only on the board | Listed, ticked off, and added on the decision page; the board's picker shows every decision |
+| **P1** No role changes or removal in the UI | Role picker and remove button on /team; the last admin is protected; demotions apply on the next request |
+| **P1** Relations couldn't be removed | Remove button for the relation's creator or an admin |
+| **P1** Private decisions couldn't be created from the UI | Private option on the form; author can switch visibility on the decision page |
+| **P1** Accountable / Consulted captured but never shown | Shown and editable on the decision page |
+| **P1** AI drafting endpoint had no UI | "Suggest framing with AI" fills empty problem / alternatives / assumptions / risks - never the rationale |
+| **P1** Quick capture always created *approved* decisions | Proposed by default, with an "already decided" checkbox |
+| **P1** Signup lost the form on a server error | Values are kept |
+| **P2** Archived decisions cluttered the default list | Hidden by default; "Show archived (N)" or any status filter brings them back |
+| **P2** Kanban moves failed silently | Roll back with an error toast |
 
-### P1: core-flow gaps
+Found and fixed along the way: about a dozen decision API routes (notes,
+reviews, links, relations, versions, watch, archive, tags, action items, and
+the decision update itself) checked only the workspace, so a member who knew a
+private decision's id could read or edit it. They now go through
+`visibleDecision()`. Separately, `.env.example` shipped active placeholder
+SMTP settings, which stalled every email-sending request in a fresh setup.
 
-3. **Action items on the decision page.** Follow-ups live only on the board,
-   and its decision picker is capped at 30 decisions with titles cut at 40
-   characters. Show a decision's action items on its page and let people add
-   them there.
-4. **Team management.** Add role changes (`PATCH /api/team/[id]`) and a remove
-   button for the existing `DELETE` route on `/team`.
-5. **Relations.** Add a remove button (the `DELETE` route exists).
-6. **Visibility control in the UI.** The API supports private decisions, but
-   the form always sends `workspace`. Add a visibility control to the form and
-   the decision page.
-7. **Accountable (DRI) and Consulted.** These are captured at creation but
-   never shown afterwards. Show them on the decision page and make them
-   editable there.
-8. **AI drafting UI.** `POST /api/decisions/ai-draft` exists, but nothing
-   calls it. Add a "Draft with AI" action on the form, shown only when a key
-   is configured.
-9. **One definition of "reviews due".** The sidebar counts *your* due reviews,
+### Still open
+
+**P1: core-flow gaps**
+
+1. **One definition of "reviews due".** The sidebar counts *your* due reviews,
    while the Reviews page and the "Needs review" filter count the whole
    workspace. Label them separately, or offer a mine/all toggle.
-10. **Don't lose drafts.** Add an unsaved-changes guard and a local autosave on
-    the new-decision form. Keep the values on the signup form after a server
-    error. Keep note and review dialog text when the dialog is dismissed.
-11. **Quick capture should respect status.** ⌘K quick capture always creates
-    an *approved* decision. Default to proposed, or let the user choose.
+2. **Don't lose drafts.** Add an unsaved-changes guard and a local autosave on
+   the new-decision form. Keep note and review dialog text when the dialog is
+   dismissed.
+3. **Multiple workspaces per person.** Sign-in always opens a person's first
+   membership. Someone invited into a second workspace has no way to switch
+   to it. Add a workspace switcher.
 
-### P2: polish and reach
+**P2: polish and reach**
 
-12. **Scale.** Paginate the decisions list, activity, and reviews. Stop loading
-    every workspace decision on the decision page just to fill pickers; use
-    the search endpoint as a typeahead instead.
-13. **Archived decisions.** Hide them from the default decisions list, with a
-    "Show archived" toggle, so archiving matches what the confirmation dialog
-    promises.
-14. **Kanban robustness.** Roll back the optimistic move when the API rejects
-    it.
-15. **Template placeholders.** Built-in templates insert literal
-    `[describe]` text. Render template hints as placeholders, or highlight
-    unedited template text in the quality meter.
-16. **Import.** Add the reverse of the ADR export: import a folder of
-    ADR/MADR Markdown files, or a CSV, so teams can migrate an existing log.
-17. **Integrations.** Unfurl GitHub/Linear/Jira links into typed links,
-    capture decisions from GitHub PR comments, and add outgoing webhooks for
-    decision events.
-18. **Agent access.** Expose search and Ask as an MCP server, so coding agents
-    can cite past decisions while they work.
-19. **Accessibility pass.** Run the Storybook a11y addon in CI, do a full
-    keyboard walk-through of the graph and board, and check that status is
-    never signalled by color alone.
-20. **Internationalization.** Format dates through the user's locale
+4. **Scale.** Paginate the decisions list, activity, and reviews. Stop loading
+   every workspace decision on the decision page just to fill pickers; use the
+   search endpoint as a typeahead instead.
+5. **Template placeholders.** Built-in templates insert literal `[describe]`
+   text. Render template hints as placeholders, or highlight unedited template
+   text in the quality meter.
+6. **Import.** Add the reverse of the ADR export: import a folder of ADR/MADR
+   Markdown files, or a CSV, so teams can migrate an existing log.
+7. **Integrations.** Unfurl GitHub/Linear/Jira links into typed links, capture
+   decisions from GitHub PR comments, and add outgoing webhooks for decision
+   events.
+8. **Agent access.** Expose search and Ask as an MCP server, so coding agents
+   can cite past decisions while they work.
+9. **Accessibility pass.** Run the Storybook a11y addon in CI, do a full
+   keyboard walk-through of the graph and board, and check that status is
+   never signalled by color alone.
+10. **Internationalization.** Format dates through the user's locale
     consistently; some date inputs and labels currently disagree.
+11. **Dev-only audit findings.** The `braces` advisory covers every published
+    version and reaches us only through ESLint's and Storybook's file
+    watchers. CI reports it without blocking; restore the strict all-high gate
+    once upstream ships a fix.
 
 ### Contributor experience
 
