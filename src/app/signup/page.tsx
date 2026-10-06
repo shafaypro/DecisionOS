@@ -32,7 +32,7 @@ function SignupForm() {
             <LogoMark size={56} />
           </div>
           <Wordmark size="3xl" />
-          <Text as="p">
+          <Text as="p" className="mt-2 text-slate-300">
             Create your team workspace
           </Text>
         </div>

@@ -41,6 +41,10 @@ export function CommandPalette() {
   const [quickRationale, setQuickRationale] = useState("");
   const [quickPending, startQuickTransition] = useTransition();
   const [quickError, setQuickError] = useState<string | undefined>();
+  // Quick capture is fast by design, so it defaults to "proposed" - a decision
+  // logged from a keyboard shortcut shouldn't land as approved unless the
+  // person says it already is.
+  const [quickApproved, setQuickApproved] = useState(false);
 
   const closePalette = useCallback(() => {
     setOpen(false);
@@ -50,6 +54,7 @@ export function CommandPalette() {
     setQuickMode(false);
     setQuickRationale("");
     setQuickError(undefined);
+    setQuickApproved(false);
   }, []);
 
   const enterQuickMode = useCallback(() => {
@@ -72,7 +77,7 @@ export function CommandPalette() {
         body: JSON.stringify({
           title,
           rationale: quickRationale.trim(),
-          status: "approved",
+          status: quickApproved ? "approved" : "proposed",
           visibility: "workspace",
         }),
       });
@@ -262,6 +267,17 @@ export function CommandPalette() {
                   {quickError}
                 </Text>
               )}
+              <label className="mt-2 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={quickApproved}
+                  onChange={(e) => setQuickApproved(e.target.checked)}
+                  className="rounded-xs border-blue-300"
+                />
+                <Text as="span" size="xs" color="secondary">
+                  Already decided - save as approved (otherwise it&apos;s logged as proposed)
+                </Text>
+              </label>
               <div className="mt-2 flex items-center justify-between gap-2">
                 <Text as="span" size="2xs" color="subtle">
                   <Text as="kbd" size="2xs" color="inherit" mono>

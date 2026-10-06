@@ -14,7 +14,7 @@ export function AuthCard({ subtitle, children }: { subtitle: string; children: R
             <LogoMark size={56} />
           </div>
           <Wordmark size="3xl" />
-          <Text as="p">{subtitle}</Text>
+          <Text as="p" className="mt-2 text-slate-300">{subtitle}</Text>
         </div>
         <div className="rounded-xs bg-white p-8 shadow-soft">{children}</div>
       </div>

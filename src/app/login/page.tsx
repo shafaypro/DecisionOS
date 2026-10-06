@@ -38,7 +38,7 @@ export default function LoginPage() {
             <LogoMark size={56} />
           </div>
           <Wordmark size="3xl" />
-          <Text as="p">
+          <Text as="p" className="mt-2 text-slate-300">
             Sign in to your workspace
           </Text>
         </div>
@@ -135,7 +135,7 @@ export default function LoginPage() {
           </Text>
         </div>
 
-        <Text as="p">
+        <Text as="p" size="sm" className="mt-6 text-center text-slate-400">
           A structured system of record for team decisions
         </Text>
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Save, Send, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Save, Send, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -230,6 +230,8 @@ interface DecisionFormProps {
   };
   members: Member[];
   templates?: FormTemplate[];
+  /** Show "Suggest with AI" - only when the workspace has a model configured. */
+  aiEnabled?: boolean;
   isEdit?: boolean;
 }
 
@@ -290,6 +292,7 @@ export function DecisionForm({
   defaultValues = {},
   members,
   templates = [],
+  aiEnabled = false,
   isEdit,
 }: DecisionFormProps) {
   const [pending, startTransition] = useTransition();
@@ -304,6 +307,10 @@ export function DecisionForm({
   const [status, setStatus] = useState(defaultValues.status ?? "approved");
   const [isPrivate, setIsPrivate] = useState(defaultValues.visibility === "private");
   const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
+  // Bumped whenever a template or AI fills fields, so collapsed sections that
+  // just received content re-mount open.
+  const [prefillVersion, setPrefillVersion] = useState(0);
+  const [aiPending, setAiPending] = useState(false);
   const [rationale, setRationale] = useState(defaultValues.rationale ?? "");
   const [problemStatement, setProblemStatement] = useState(defaultValues.problemStatement ?? "");
   const [chosenOption, setChosenOption] = useState(defaultValues.chosenOption ?? "");
@@ -339,6 +346,53 @@ export function DecisionForm({
     if (v.category && CATEGORIES.some((c) => c.value === v.category)) setCategory(v.category);
     if (v.impactLevel && IMPACT_LEVELS.some((i) => i.value === v.impactLevel)) setImpactLevel(v.impactLevel);
     setAppliedTemplateId(t.id);
+    setPrefillVersion((v) => v + 1);
+  }
+
+  /**
+   * Ask the configured model for a first pass at the framing: problem,
+   * alternatives, assumptions, risks. Fills empty fields only, and never the
+   * rationale or the solution - what was decided and why must come from the
+   * people who decided it.
+   */
+  async function suggestWithAI() {
+    if (title.trim().length < 8 || aiPending) return;
+    setAiPending(true);
+    try {
+      const res = await fetch("/api/decisions/ai-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), category }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { draft?: Record<string, unknown>; error?: string };
+      if (!res.ok || !data.draft) {
+        toast.error(data.error ?? "AI suggestions failed. Try again.");
+        return;
+      }
+      const d = data.draft;
+      const str = (k: string) => (typeof d[k] === "string" ? (d[k] as string).trim() : "");
+      let filled = 0;
+      const fill = (current: string, next: string, set: (x: string) => void) => {
+        if (next && !current.trim()) {
+          set(next);
+          filled++;
+        }
+      };
+      fill(problemStatement, str("problemStatement"), setProblemStatement);
+      fill(alternativesConsidered, str("alternativesConsidered"), setAlternativesConsidered);
+      fill(assumptions, str("assumptions"), setAssumptions);
+      fill(risks, str("risks"), setRisks);
+      setPrefillVersion((v) => v + 1);
+      if (filled > 0) {
+        toast.success(`Added suggestions to ${filled} empty field${filled === 1 ? "" : "s"}. Edit them - they're a starting point.`);
+      } else {
+        toast.info("Those fields already have content, so nothing was changed.");
+      }
+    } catch {
+      toast.error("Could not reach the server.");
+    } finally {
+      setAiPending(false);
+    }
   }
 
   function handleSubmit(saveAsProposed?: boolean) {
@@ -484,6 +538,24 @@ export function DecisionForm({
           className={TEXT_SIZE.base}
           autoFocus
         />
+        {aiEnabled && !isEdit && (
+          <div className="mt-2 flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={aiPending || title.trim().length < 8}
+              onClick={suggestWithAI}
+              icon={<Sparkles className="h-3.5 w-3.5" />}
+              title={title.trim().length < 8 ? "Type a fuller title first" : undefined}
+            >
+              {aiPending ? "Thinking…" : "Suggest framing with AI"}
+            </Button>
+            <Text size="xs" color="subtle">
+              Fills empty problem, alternatives, assumptions, and risks. Never your rationale.
+            </Text>
+          </div>
+        )}
         {!isEdit && (
           <SimilarDecisionsHint
             title={title}
@@ -669,7 +741,7 @@ export function DecisionForm({
       </label>
 
       <Disclosure
-        key={`alt-${appliedTemplateId}`}
+        key={`alt-${prefillVersion}`}
         label="Alternatives (optional)"
         defaultOpen={!!alternativesConsidered}
       >
@@ -695,7 +767,7 @@ export function DecisionForm({
       </Disclosure>
 
       <Disclosure
-        key={`ar-${appliedTemplateId}`}
+        key={`ar-${prefillVersion}`}
         label="Assumptions and risks (optional)"
         defaultOpen={!!(assumptions || risks)}
       >

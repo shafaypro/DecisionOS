@@ -42,10 +42,10 @@ export default async function TeamPage() {
               { label: "Viewers", value: viewers },
             ].map((stat) => (
               <div key={stat.label} className="rounded-xs bg-white/80 px-4 py-3 shadow-soft backdrop-blur">
-                <Text>
+                <Text as="p" size="xs" color="muted">
                   {stat.label}
                 </Text>
-                <Text>
+                <Text as="p" size="lg" weight="semibold" color="primary">
                   {stat.value}
                 </Text>
               </div>
@@ -121,17 +121,11 @@ export default async function TeamPage() {
                     {isAdmin && !isCurrentUser ? (
                       <MemberControls membershipId={m.id} name={m.user.name} role={m.role} />
                     ) : (
-                    <Badge className={roleTone}>
-                      <Text>
-                        {m.role === "admin" ? (
-                          <Shield className="h-3 w-3" />
-                        ) : (
-                          <User className="h-3 w-3" />
-                        )}
-                        <Text>
-                          {m.role}
-                        </Text>
-                      </Text>
+                    <Badge
+                      className={roleTone}
+                      icon={m.role === "admin" ? <Shield className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                    >
+                      {m.role}
                     </Badge>
                     )}
                   </div>

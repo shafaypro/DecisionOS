@@ -600,17 +600,25 @@ export function EditableVisibility({ decisionId, value }: { decisionId: string; 
   }
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      disabled={saving}
-      className="inline-flex items-center gap-1.5 rounded-xs text-left text-slate-600 hover:text-slate-800 disabled:opacity-50"
-    >
-      {isPrivate ? <Lock className="h-3.5 w-3.5 text-amber-600" /> : <Users className="h-3.5 w-3.5 text-text-subtle" />}
-      <Text size="sm" color="inherit">
-        {isPrivate ? "Private - only you" : "Visible to workspace"}
-      </Text>
-      <Text size="xs" color="subtle">· {isPrivate ? "Share with workspace" : "Make private"}</Text>
-    </button>
+    <div className="flex items-start gap-1.5">
+      {isPrivate ? (
+        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden />
+      ) : (
+        <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-text-subtle" aria-hidden />
+      )}
+      <div>
+        <Text as="p" size="sm" color="secondary">
+          {isPrivate ? "Private - only you can see it" : "Visible to the workspace"}
+        </Text>
+        <button
+          type="button"
+          onClick={toggle}
+          disabled={saving}
+          className="text-left hover:underline disabled:opacity-50"
+        >
+          <Text size="xs" color="muted">{isPrivate ? "Share with the workspace" : "Make private"}</Text>
+        </button>
+      </div>
+    </div>
   );
 }

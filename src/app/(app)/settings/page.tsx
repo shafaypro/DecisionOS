@@ -71,16 +71,16 @@ export default async function SettingsPage() {
 
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <Text>{workspace._count.memberships}</Text>
-              <Text>Members</Text>
+              <Text as="p" size="lg" weight="semibold" color="primary">{workspace._count.memberships}</Text>
+              <Text as="p" size="xs" color="muted">Members</Text>
             </div>
             <div>
-              <Text>{workspace._count.decisions}</Text>
-              <Text>Decisions</Text>
+              <Text as="p" size="lg" weight="semibold" color="primary">{workspace._count.decisions}</Text>
+              <Text as="p" size="xs" color="muted">Decisions</Text>
             </div>
             <div>
-              <Text>{formatDate(workspace.createdAt)}</Text>
-              <Text>Created</Text>
+              <Text as="p" size="lg" weight="semibold" color="primary">{formatDate(workspace.createdAt)}</Text>
+              <Text as="p" size="xs" color="muted">Created</Text>
             </div>
           </div>
         </div>

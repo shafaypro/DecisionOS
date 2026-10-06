@@ -11,6 +11,8 @@ import {
   ChevronRight, Trash2, Circle,
 } from "lucide-react";
 import { ACTION_ITEM_STATUSES, ACTION_ITEM_PRIORITIES, formatDate, getLabelForValue } from "@/lib/utils";
+import { sendJson } from "@/lib/client-fetch";
+import { useToast } from "@/components/ui/toast";
 
 interface Member { id: string; name: string }
 interface ActionItemDecision { id: string; title: string }
@@ -244,7 +246,11 @@ function CreateItemForm({
           className="h-8 px-2"
         >
           <option value="">None</option>
-          {decisions.slice(0, 30).map((d) => <option key={d.id} value={d.id}>{d.title.slice(0, 40)}</option>)}
+          {decisions.map((d) => (
+            <option key={d.id} value={d.id} title={d.title}>
+              {d.title.length > 60 ? `${d.title.slice(0, 59)}…` : d.title}
+            </option>
+          ))}
         </NativeSelect>
       </div>
       {error && (
@@ -265,23 +271,32 @@ export function KanbanBoard({ initialItems, members, decisions, currentUserId, i
   const [items, setItems] = useState(initialItems);
   const [creating, setCreating] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const toast = useToast();
 
+  // Both mutations update the board optimistically, then put the card back if
+  // the server refuses - a move that silently didn't save is worse than none.
   function changeStatus(id: string, newStatus: string) {
+    const before = items;
     setItems((prev) => prev.map((i) => i.id === id ? { ...i, status: newStatus } : i));
     startTransition(async () => {
-      await fetch(`/api/action-items/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      const err = await sendJson(`/api/action-items/${id}`, "PATCH", { status: newStatus });
+      if (err) {
+        setItems(before);
+        toast.error(`Could not move the item: ${err}`);
+      }
     });
   }
 
   function deleteItem(id: string) {
     if (!confirm("Delete this action item?")) return;
+    const before = items;
     setItems((prev) => prev.filter((i) => i.id !== id));
     startTransition(async () => {
-      await fetch(`/api/action-items/${id}`, { method: "DELETE" });
+      const err = await sendJson(`/api/action-items/${id}`, "DELETE", undefined);
+      if (err) {
+        setItems(before);
+        toast.error(`Could not delete the item: ${err}`);
+      }
     });
   }
 
