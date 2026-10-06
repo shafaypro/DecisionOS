@@ -87,7 +87,9 @@ erDiagram
 
 Modeling notes:
 - **Enums are stored as `String`** (status, role, category, priority, relationType, …) with
-  app-level defaults - no DB-level CHECK yet. Moving to Postgres-native `enum` is a backlog item.
+  app-level defaults - no DB-level CHECK yet. Decision `status`, `category`, `impactLevel`, and
+  `visibility` are validated against the lists in `src/lib/utils.ts` by `DecisionWriteSchema`
+  (legacy statuses are mapped on input). Moving to Postgres-native `enum` is a backlog item.
 - **JSON is stored as `String`** (`consultedIds`, `*Json` audit/version blobs, encrypted
   `configJson`). Postgres `jsonb` is a future improvement.
 - **Audit trail:** most mutations also write a `DecisionEvent`; edits snapshot to
@@ -136,11 +138,11 @@ this section lists the fields that matter most per model.
 | Field | Type | Description |
 |---|---|---|
 | `title` | String | Short decision title (3-200 chars) |
-| `summary` | String| 1-2 sentence description shown in list views (max 500) |
-| `category` | String | `engineering` / `product` / `hiring` / `finance` / `marketing` / `operations` / `strategy` / `other` |
-| `status` | String | `draft` / `in_review` / `approved` / `superseded` / `deprecated` / `reversed` / `archived` |
-| `outcomeStatus` | String| `unknown` / `successful` / `partially_successful` / `unsuccessful` / `reversed` |
-| `impactLevel` | String | `low` / `medium` / `high` / `critical` |
+| `summary` | String| One-line description shown under the title in lists and search (max 1000) |
+| `category` | String | `product` / `engineering` / `business` / `hiring` / `finance` / `marketing` / `strategy` / `operations` / `other` |
+| `status` | String | `draft` / `proposed` / `in_review` / `approved` / `reversed` / `superseded` / `archived` |
+| `outcomeStatus` | String| `unknown` / `successful` / `mixed` / `unsuccessful` |
+| `impactLevel` | String | `low` / `medium` / `high` |
 | `visibility` | String | `workspace` (all members) / `private` (creator only) |
 | `ownerUserId` | String| Responsible person (FK → User) |
 | `problemStatement` | String| What problem prompted this decision? |

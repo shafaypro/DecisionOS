@@ -84,3 +84,4 @@ nav:
       - GDPR: compliance/GDPR.md
       - SOC 2: compliance/SOC2.md
   - Platform admin: PLATFORM_ADMIN.md
+  - Roadmap: ROADMAP.md

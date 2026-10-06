@@ -93,7 +93,7 @@ mutation through the validated, workspace-scoped [API layer](api-layer.md).
 |---|---|
 | `/dashboard` | Workspace health - decision debt pill, stats cards, recent activity feed, overdue reviews |
 | `/decisions` | Full decision list with search, multi-filter sidebar, and onboarding checklist |
-| `/decisions/new` | Create a new decision - full structured form with template picker and re-decide detector |
+| `/decisions/new` | Create a new decision - full structured form (category, impact, summary, status) with one-click templates and re-decide detector |
 | `/decisions/:id` | Decision detail - all fields, health badge, blast radius, reactions, notes, links, tags, version history, reviews, audit trail |
 | `/decisions/:id/edit` | Edit all decision fields (snapshots a version before saving) |
 | `/decisions/:id/history` | Full field-diff timeline - before/after for every edit |

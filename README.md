@@ -74,18 +74,19 @@ Then sign in with the seeded demo accounts:
 | Feature | Description |
 |---|---|
 | **Structured Decision Records** | Title, summary, problem statement, Solution, rationale, alternatives considered, assumptions, and risks |
-| **Status Workflow** | Draft → In Review → Approved → Superseded / Deprecated / Reversed / Archived |
-| **Outcome Tracking** | Mark decisions as Successful / Partially Successful / Unsuccessful / Reversed / Unknown |
-| **Impact Levels** | Low / Medium / High / Critical with colour-coded badges |
-| **Category System** | Engineering, Product, Hiring, Finance, Marketing, Operations, Strategy, Other |
+| **Status Workflow** | Draft → Proposed → In Review → Approved → Reversed / Superseded / Archived, enforced by the API (legacy values are folded in automatically) |
+| **Outcome Tracking** | Mark decisions as Successful / Mixed / Unsuccessful / Unknown |
+| **Impact Levels** | Low / Medium / High with colour-coded badges - set on the form, editable inline on the decision page |
+| **Category System** | Product, Engineering, Business, Hiring, Finance, Marketing, Strategy, Operations, Other - set on the form, editable inline |
 | **Outcome Reviews** | Submit periodic reviews with a rating, summary, lessons learned, and follow-up actions; full review history per decision |
 | **Notes & Comments** | Add contextual notes to any decision with threaded replies; delete your own notes and replies |
 | **Resource Links** | Attach references (RFC, PR, ADR, article, etc.) with typed link categories |
-| **Tag System** | Admins create colour-coded workspace tags; any member can apply/remove tags on decisions |
+| **Tag System** | Admins create colour-coded workspace tags on `/tags`; any member applies or removes them from the decision page |
 | **Advanced Filtering** | Filter by status, category, impact level, outcome, owner, or free-text search across titles |
 | **Search Query Language** | One box, GitHub-style filters - `status:approved owner:me tag:infra impact:high -status:archived after:30d is:overdue "primary database"`. Unknown filters degrade to text with a warning instead of returning nothing. See [search syntax](docs/SEARCH.md) |
 | **Reviews Page** | Dedicated page showing overdue reviews, upcoming reviews, and review history across the workspace |
 | **Dashboard Analytics** | Live stats - active decisions, due-for-review, recently reviewed, reversals; recent activity feed; high-impact decisions |
+| **Private Decisions** | A decision marked private is visible only to its author - in lists, search, Ask, the graph, reviews, exports, and its own page |
 | **Public Share Page** | Generate a read-only shareable URL (`/share/:id`) for any workspace-visible decision - no login required |
 | **CSV Export** | One-click export of all decisions to a dated `.csv` file with 23 columns including tags, review counts, and all reasoning fields |
 | **Markdown / ADR Export** | Export one decision as an ADR-shaped `.md` file (YAML front matter, context → decision → consequences) to commit next to the code it governs, or the whole log as one bundle with a table of contents |
@@ -93,7 +94,7 @@ Then sign in with the seeded demo accounts:
 | **Record Quality Score** | Weighted completeness score per decision (rationale and alternatives weigh most) with the highest-value missing fields listed as next actions; rolled up per workspace |
 | **Risk Register** | Every recorded risk and assumption across active decisions in one page, ranked by impact and by whether anyone has re-checked the decision lately |
 | **Markdown Rendering** | Decision fields, notes, and reviews render Markdown - headings, lists, quotes, code, links - through an escape-first renderer with no parser dependency |
-| **Team Management** | Admins can invite members by email (creates an account if none exists), assign roles (Member / Admin), and view all workspace members |
+| **Team Management** | Admins can invite members by email (creates an account if none exists), choose their role (Viewer / Member / Admin) at invite time, and view all workspace members |
 | **Workspace Settings** | Admins can update the workspace name and slug |
 | **Audit Log** | Every significant mutation (create, update, status change, note added, link added, reviewed) emits a `DecisionEvent` record |
 | **Multi-tenant Workspaces** | Every user belongs to a workspace; all data is strictly scoped by `workspaceId` |
@@ -108,11 +109,11 @@ Then sign in with the seeded demo accounts:
 | **Atomic Supersede** | Supersede flow wraps relation-create + status-flip + audit event in a DB transaction - no partial state |
 | **Ask DecisionOS** | Natural-language Q&A over your decision log - ask *"why did we move off Auth0?"* and get an answer **grounded in and cited to the actual decision records**, with one-click jump-to-source. Falls back to ranked semantic retrieval when no AI key is configured, so it's useful on day one |
 | **Command Palette** | `⌘K` / `Ctrl+K` global search with quick-capture mode - type a title, press Tab, add rationale, and log a decision without leaving the palette |
-| **Keyboard Shortcuts** | Press `?` anywhere for the cheatsheet; `c` to create, `g d/h/r/a/t/s` to navigate, `Esc` to close overlays |
+| **Keyboard Shortcuts** | Press `?` anywhere for the cheatsheet; `c` to create, `g d/r/k/a/t/s` to navigate, `Esc` to close overlays |
 | **Slack Capture Bot** | `/decisionos log` slash command + 🔒 emoji trigger open a Block Kit modal - decisions log in 15 seconds from Slack |
 | **Review-Due Slack DMs** | Nightly cron sends Slack DMs + emails to decision owners when reviews are overdue; weekly Monday digest email per user |
 | **OIDC SSO** | OIDC/OAuth2 SSO (Okta, Google Workspace, Azure AD, Auth0) - auto-provisions users on first login |
-| **Decision Templates** | Five built-in templates (Engineering ADR, Hiring Rubric, Product RFC, Business Go/No-Go, Operations Process) pre-fill the decision form |
+| **Decision Templates** | Five built-in templates (Engineering ADR, Hiring Rubric, Product RFC, Business Go/No-Go, Operations Process) plus workspace templates; pick one on the new-decision form and it fills the empty fields without overwriting what you typed |
 | **Analytics** | Decision patterns by category - reversal rate and unhealthy rate per category, no third-party tracker |
 | **Trends & Cycle Times** | 12-month throughput and review sparklines, review compliance, median time-to-decide and review lag, momentum vs the prior 30 days, and outcome success rate - also served as JSON at `/api/analytics/trends` |
 | **OpenAPI Spec** | Every deployment serves its own OpenAPI 3.1 document at `/api/openapi` - point Swagger UI, Postman, or a client generator straight at it. See [API & exports](docs/API.md) |
@@ -176,6 +177,8 @@ How it's put together - the layered model, request flows, data model, API refere
 - [x] Bulk actions (archive multiple decisions, bulk-export filtered results)
 - [x] Kanban board, My Work, activity feed, in-app notifications, and decision watching
 - [x] Comment threads on notes (replies) - threaded replies with inline composer on the decision detail page
+
+**Next up** - invite links and password reset, opt-in public sharing, decision-page action items, and more. The full product evaluation and the prioritized plan live in **[docs/ROADMAP.md](docs/ROADMAP.md)**; issues tagged `good first issue` are carved out of it.
 
 ---
 

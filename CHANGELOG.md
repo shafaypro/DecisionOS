@@ -8,6 +8,26 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Category, impact, and summary on the new-decision form**, and inline editing
+  of all three on the decision page. Previously the web form never sent them,
+  so every web-created decision landed as "Other" / "Medium" with no way to
+  change it - skewing filters, analytics, and the risk register.
+- **Templates on the new-decision form.** The built-in and workspace templates
+  are offered as one-click chips that fill only the fields still empty. Built-in
+  templates now ship in code (`src/lib/builtin-templates.ts`), so every
+  deployment has them, not only ones that ran the demo seed.
+- **Tag picker on the decision page** - apply and remove workspace tags where
+  the record-quality meter asks for them. Tags existed but could not be applied
+  from the UI.
+- Sidebar entries for **My work**, **Board**, and **Tags**, and a **Decision
+  templates** card in Settings - these pages existed but nothing linked to them.
+- Per-page browser tab titles (`Reviews · DecisionOS`, the decision's own title
+  on its page).
+- Review follow-up actions are shown in a decision's review history.
+- The demo seed (`/api/seed`) now includes action items and tags, so the board,
+  My work, and tag filters aren't empty on first run.
+- `docs/ROADMAP.md`: product evaluation and the prioritized improvement plan.
+
 - **Search query language.** The decisions search box and
   `GET /api/decisions/search` now accept GitHub-style filters -
   `status:`, `category:`, `impact:`, `outcome:`, `owner:` (with `owner:me`),
@@ -41,6 +61,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Private decisions are now private everywhere.** The decisions list, the
+  decision and history pages, reviews, the graph, the board, and My work
+  ignored `visibility`, so a private decision was readable by the whole
+  workspace in the UI even though search, Ask, and exports hid it.
+- Decision writes now validate `status`, `category`, `impactLevel`, and
+  `visibility` against the documented vocabulary. Free strings were accepted
+  before - a `visibility` typo silently made a decision private.
+
 - CSV exports now neutralize spreadsheet formula injection (cells beginning with
   `= + - @` are quoted as literal text).
 - SSO login is refused when the identity provider reports the email as
@@ -49,6 +77,27 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   decision inside the caller's workspace.
 
 ### Fixed
+
+- Status vocabulary drift: `draft` (written by "Save as draft") was missing from
+  the status list, and the demo seeds wrote legacy values (`decided`,
+  `validated`, `under_review`) that showed as raw enum text and could not be
+  filtered. A migration folds legacy rows into the current workflow and the API
+  maps the legacy spellings on input.
+- Rescheduling a review after one was submitted now re-arms it; before, a
+  reviewed decision never came due again.
+- Dialogs no longer steal focus on every keystroke (typing in the delete-account
+  confirmation or the relation search knocked focus out), Tab now stays inside
+  an open dialog, and a drag that ends on the backdrop no longer closes it.
+- Unread and reviews-due counts in the sidebar were white text on a light
+  background; they are now visible pills and are announced to screen readers.
+- Archive and the note / reply / link / tag delete buttons report failures
+  instead of silently refreshing; inline edits keep the typed text when a save
+  fails, and the supersede-on-create link reports a failure.
+- Hover-only delete buttons are reachable by keyboard; the mobile navigation
+  drawer closes on Esc and is no longer tab-reachable while hidden; page content
+  no longer sits under the floating menu button on phones.
+- Badges no longer wrap mid-label; the decisions list separates title from
+  summary; the capture-quality score on the form is readable.
 
 - The notification badge now reflects the true unread count instead of only the
   most recent 30 notifications.
