@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { Badge, Dot } from "@/components/ui/badge";
@@ -14,8 +15,9 @@ import { RelationForm } from "./relation-form";
 import { Row } from "./row";
 import { DecisionActions } from "./decision-actions";
 import { WatchButton } from "./watch-button";
+import { TagPicker } from "./tag-picker";
 import { ReactionsBar } from "./reactions-bar";
-import { EditableText, EditableField, EditableStatus, EditableSelect, EditableDate } from "./editable";
+import { EditableText, EditableField, EditablePill, EditableStatus, EditableSelect, EditableDate } from "./editable";
 import {
   User, Calendar, Clock, Download,
   ExternalLink, Activity, Network,
@@ -23,7 +25,16 @@ import {
 import {
   cn, formatDate, formatRelativeDate, LINK_TYPES, getLabelForValue,
   STATUS_COLORS, OUTCOME_COLORS, STATUSES, OUTCOME_STATUSES, blastRadiusTone,
+  CATEGORIES, CATEGORY_COLORS, IMPACT_LEVELS, IMPACT_COLORS, RELATION_TYPES,
 } from "@/lib/utils";
+
+/** How an inbound relation reads from the target's side ("X depends on this"). */
+const INBOUND_RELATION_LABELS: Record<string, string> = {
+  supersedes: "Superseded by",
+  depends_on: "Depended on by",
+  relates_to: "Related to",
+  conflicts_with: "Conflicts with",
+};
 import { PageContainer } from "@/components/layout/page-container";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { Text } from "@/components/ui/text";
@@ -94,6 +105,18 @@ const EVENT_LABELS: Record<string, string> = {
   link_added: "added a link",
 };
 
+/** Tab title is the decision's own title - only for decisions the viewer may see. */
+export async function generateMetadata({ params }: PageProps) {
+  const { id } = await params;
+  const session = await getSession();
+  if (!session) return { title: "Decision" };
+  const decision = await prisma.decision.findFirst({
+    where: { id, ...decisionVisibilityWhere(session) },
+    select: { title: true },
+  });
+  return { title: decision?.title ?? "Decision" };
+}
+
 export default async function DecisionDetailPage({ params }: PageProps) {
   const { id } = await params;
   const session = await getSession();
@@ -101,7 +124,7 @@ export default async function DecisionDetailPage({ params }: PageProps) {
 
   const isViewer = session.role === "viewer";
 
-  const [decision, workspaceDecisions, memberships] = await Promise.all([
+  const [decision, workspaceDecisions, memberships, workspaceTags] = await Promise.all([
     prisma.decision.findUnique({
       where: { id },
       include: {
@@ -141,11 +164,11 @@ export default async function DecisionDetailPage({ params }: PageProps) {
           orderBy: { createdAt: "asc" },
         },
         // Tag count feeds the record-quality meter in the right column.
-        tags: { select: { id: true } },
+        tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
       },
     }),
     prisma.decision.findMany({
-      where: { workspaceId: session.workspaceId },
+      where: decisionVisibilityWhere(session),
       select: { id: true, title: true },
       orderBy: { title: "asc" },
     }),
@@ -153,9 +176,18 @@ export default async function DecisionDetailPage({ params }: PageProps) {
       where: { workspaceId: session.workspaceId },
       include: { user: { select: { id: true, name: true } } },
     }),
+    prisma.tag.findMany({
+      where: { workspaceId: session.workspaceId },
+      select: { id: true, name: true, color: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
-  if (!decision || decision.workspaceId !== session.workspaceId) {
+  if (
+    !decision ||
+    decision.workspaceId !== session.workspaceId ||
+    (decision.visibility !== "workspace" && decision.createdByUserId !== session.userId)
+  ) {
     notFound();
   }
 
@@ -242,6 +274,18 @@ export default async function DecisionDetailPage({ params }: PageProps) {
               variant="title"
             />
           )}
+          {isViewer ? (
+            decision.summary && <Text as="p" color="muted" className="mt-1">{decision.summary}</Text>
+          ) : (
+            <div className="mt-1">
+              <EditableText
+                decisionId={id}
+                field="summary"
+                value={decision.summary}
+                placeholder="Add a one-line summary"
+              />
+            </div>
+          )}
 
           {/* Emoji reactions */}
           <div className="mt-4">
@@ -292,6 +336,11 @@ export default async function DecisionDetailPage({ params }: PageProps) {
                         <Text color="subtle">{formatRelativeDate(review.createdAt)}</Text>
                       </div>
                       {review.summary && <Text as="p">{review.summary}</Text>}
+                      {review.followUpAction && (
+                        <Text as="p" size="xs" color="muted" className="mt-1">
+                          <Text as="span" size="xs" weight="semibold" color="muted">Follow-up:</Text> {review.followUpAction}
+                        </Text>
+                      )}
                       {review.lessonsLearned && (
                         <Text as="p" size="xs" color="muted" className="mt-1">
                           <Text as="span" size="xs" weight="semibold" color="muted">Lessons learned:</Text> {review.lessonsLearned}
@@ -364,6 +413,36 @@ export default async function DecisionDetailPage({ params }: PageProps) {
                 </Badge>
               ) : (
                 <EditableStatus decisionId={id} value={decision.status} />
+              )}
+              {isViewer ? (
+                <>
+                  <Badge className={CATEGORY_COLORS[decision.category] ?? "bg-slate-100 text-slate-600"}>
+                    {getLabelForValue(CATEGORIES, decision.category)}
+                  </Badge>
+                  <Badge className={IMPACT_COLORS[decision.impactLevel] ?? "bg-slate-100 text-slate-600"}>
+                    {`${getLabelForValue(IMPACT_LEVELS, decision.impactLevel)} impact`}
+                  </Badge>
+                </>
+              ) : (
+                <>
+                  <EditablePill
+                    decisionId={id}
+                    field="category"
+                    value={decision.category}
+                    options={CATEGORIES}
+                    colors={CATEGORY_COLORS}
+                    ariaLabel="Change category"
+                  />
+                  <EditablePill
+                    decisionId={id}
+                    field="impactLevel"
+                    value={decision.impactLevel}
+                    options={IMPACT_LEVELS}
+                    colors={IMPACT_COLORS}
+                    ariaLabel="Change impact"
+                    suffix=" impact"
+                  />
+                </>
               )}
               <Badge className={healthMeta.tone} title={healthMeta.hint} icon={<Dot className={healthMeta.dot} />}>
                 {healthMeta.label}
@@ -464,6 +543,15 @@ export default async function DecisionDetailPage({ params }: PageProps) {
             </a>
           </div>
 
+          <Section title="Tags">
+            <TagPicker
+              decisionId={id}
+              applied={decision.tags.map((t) => t.tag)}
+              available={workspaceTags}
+              readOnly={isViewer}
+            />
+          </Section>
+
           {/* Decision relations (inline list) */}
           {(decision.relationsFrom.length > 0 || decision.relationsTo.length > 0) && (
             <div id="relations">
@@ -471,7 +559,7 @@ export default async function DecisionDetailPage({ params }: PageProps) {
               <div className="space-y-1.5">
                 {decision.relationsFrom.map((r) => (
                   <div key={r.id}>
-                    <Text>{r.relationType.replace("_", " ")}: </Text>
+                    <Text>{getLabelForValue(RELATION_TYPES, r.relationType)}: </Text>
                     <Link href={`/decisions/${r.toDecision.id}`} className="hover:underline inline">
                       <Text>{r.toDecision.title}</Text>
                     </Link>
@@ -479,7 +567,7 @@ export default async function DecisionDetailPage({ params }: PageProps) {
                 ))}
                 {decision.relationsTo.map((r) => (
                   <div key={r.id}>
-                    <Text>Referenced by: </Text>
+                    <Text>{INBOUND_RELATION_LABELS[r.relationType] ?? "Referenced by"}: </Text>
                     <Link href={`/decisions/${r.fromDecision.id}`} className="hover:underline inline">
                       <Text>{r.fromDecision.title}</Text>
                     </Link>

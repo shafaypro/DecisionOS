@@ -6,6 +6,8 @@ import { Text } from "@/components/ui/text";
 import { CheckCircle, MessageSquare as SlackIcon } from "lucide-react";
 import Link from "next/link";
 
+export const metadata = { title: "Connect Slack" };
+
 interface PageProps {
   searchParams: Promise<{ slack_user?: string; team?: string }>;
 }

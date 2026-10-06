@@ -10,6 +10,8 @@ import { PageContainer } from "@/components/layout/page-container";
 import { Text } from "@/components/ui/text";
 import { EmptyState } from "@/components/ui/empty-state";
 
+export const metadata = { title: "Decision history" };
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -63,6 +65,8 @@ export default async function DecisionHistoryPage({ params }: PageProps) {
       id: true,
       title: true,
       workspaceId: true,
+      visibility: true,
+      createdByUserId: true,
       versions: {
         include: { changedBy: { select: { id: true, name: true } } },
         orderBy: { versionNum: "desc" },
@@ -70,7 +74,13 @@ export default async function DecisionHistoryPage({ params }: PageProps) {
     },
   });
 
-  if (!decision || decision.workspaceId !== session.workspaceId) notFound();
+  if (
+    !decision ||
+    decision.workspaceId !== session.workspaceId ||
+    (decision.visibility !== "workspace" && decision.createdByUserId !== session.userId)
+  ) {
+    notFound();
+  }
 
   return (
     <PageContainer>

@@ -47,6 +47,16 @@ export const PUT = withApi<DecisionPatchInput, { id: string }>(
     for (const k of ["decisionDate", "reviewDate"] as const) {
       if (has(k)) data[k] = body[k] ? new Date(body[k] as string) : null;
     }
+    // Scheduling a review after the last one re-arms it: every "due" query keys
+    // off `reviewedAt: null`, so without this a reviewed decision never comes
+    // due again however its review date moves.
+    if (
+      data.reviewDate instanceof Date &&
+      existing.reviewedAt &&
+      data.reviewDate.getTime() > existing.reviewedAt.getTime()
+    ) {
+      data.reviewedAt = null;
+    }
     // Consulted ids are stored as a JSON string.
     if (has("consultedIds")) {
       data.consultedIds =

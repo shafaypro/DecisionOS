@@ -261,6 +261,50 @@ describe("decisions create/update - tenancy, authz, validation", () => {
     sessionFor(ctx.aAdmin, ctx.wsA, "admin");
     expect((await decisionsPUT(jsonReq({ title: `${MARK} updated title` }), withParams(ctx.dApublic))).status).toBe(200);
   });
+
+  it("create: stores category, impact, and summary sent by the form", async () => {
+    sessionFor(ctx.aAdmin, ctx.wsA, "admin");
+    const res = await decisionsPOST(jsonReq({
+      title: `${MARK} classified decision`,
+      summary: "One-line summary",
+      category: "finance",
+      impactLevel: "high",
+      status: "decided", // legacy spelling still accepted, stored as the modern one
+    }));
+    expect(res.status).toBe(200);
+    const { id } = (await res.json()) as { id: string };
+    const row = await prisma.decision.findUnique({ where: { id } });
+    expect(row).toMatchObject({ category: "finance", impactLevel: "high", summary: "One-line summary", status: "approved" });
+  });
+
+  it("update: rejects values outside the decision vocabulary (400)", async () => {
+    sessionFor(ctx.aAdmin, ctx.wsA, "admin");
+    for (const bad of [{ category: "legal" }, { impactLevel: "critical" }, { status: "done" }, { visibility: "team" }]) {
+      expect((await decisionsPUT(jsonReq(bad), withParams(ctx.dApublic))).status).toBe(400);
+    }
+  });
+
+  it("update: moving the review date past the last review re-arms it", async () => {
+    sessionFor(ctx.aAdmin, ctx.wsA, "admin");
+    const reviewedAt = new Date(Date.now() - 86_400_000);
+    await prisma.decision.update({ where: { id: ctx.dApublic }, data: { reviewedAt, reviewDate: reviewedAt } });
+
+    const next = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+    expect((await decisionsPUT(jsonReq({ reviewDate: next }), withParams(ctx.dApublic))).status).toBe(200);
+    const row = await prisma.decision.findUnique({ where: { id: ctx.dApublic } });
+    expect(row?.reviewedAt).toBeNull();
+    expect(row?.reviewDate?.toISOString().slice(0, 10)).toBe(next);
+  });
+
+  it("update: an earlier review date leaves the last review in place", async () => {
+    sessionFor(ctx.aAdmin, ctx.wsA, "admin");
+    const reviewedAt = new Date();
+    await prisma.decision.update({ where: { id: ctx.dApublic }, data: { reviewedAt } });
+    const earlier = new Date(Date.now() - 10 * 86_400_000).toISOString().slice(0, 10);
+    expect((await decisionsPUT(jsonReq({ reviewDate: earlier }), withParams(ctx.dApublic))).status).toBe(200);
+    const row = await prisma.decision.findUnique({ where: { id: ctx.dApublic } });
+    expect(row?.reviewedAt?.getTime()).toBe(reviewedAt.getTime());
+  });
 });
 
 describe("decision graph - relations / supersede / versions tenancy & authz", () => {

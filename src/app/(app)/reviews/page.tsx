@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -13,19 +14,21 @@ import { InlineReviewButtons } from "@/components/reviews/inline-review-buttons"
 import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
 
+export const metadata = { title: "Reviews" };
+
 export default async function ReviewsPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const workspaceId = session.workspaceId;
   const isViewer = session.role === "viewer";
   const now = new Date();
+  const visible = decisionVisibilityWhere(session);
 
   const [overdue, upcoming, recentlyReviewed, allReviews] = await Promise.all([
     // Overdue: reviewDate past, not yet reviewed, not archived/superseded
     prisma.decision.findMany({
       where: {
-        workspaceId,
+        ...visible,
         reviewDate: { lte: now },
         reviewedAt: null,
         status: { notIn: ["archived", "superseded"] },
@@ -36,7 +39,7 @@ export default async function ReviewsPage() {
     // Upcoming (next 60 days)
     prisma.decision.findMany({
       where: {
-        workspaceId,
+        ...visible,
         reviewDate: {
           gt: now,
           lte: new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000),
@@ -50,7 +53,7 @@ export default async function ReviewsPage() {
     // Recently reviewed (last 30 days)
     prisma.decision.findMany({
       where: {
-        workspaceId,
+        ...visible,
         reviewedAt: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) },
       },
       orderBy: { reviewedAt: "desc" },
@@ -59,7 +62,7 @@ export default async function ReviewsPage() {
     }),
     // All review records
     prisma.decisionReview.findMany({
-      where: { decision: { workspaceId } },
+      where: { decision: visible },
       orderBy: { createdAt: "desc" },
       take: 20,
       include: {

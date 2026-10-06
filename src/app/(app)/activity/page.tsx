@@ -10,6 +10,8 @@ import { formatRelativeDate } from "@/lib/utils";
 import { ActivityFilters } from "./activity-filters";
 import { ACTIVITY_EVENT_TYPES, activityEventVerb, type ActivityEventType } from "@/lib/activity-events";
 
+export const metadata = { title: "Activity" };
+
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;

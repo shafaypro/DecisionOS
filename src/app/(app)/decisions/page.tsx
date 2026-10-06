@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,8 @@ import { DecisionsFilters } from "./decisions-filters";
 import { OnboardingChecklist, type ChecklistItem } from "./onboarding-checklist";
 import { DecisionsTable } from "./decisions-table";
 import { ExportMenu } from "@/components/decisions/export-menu";
+
+export const metadata = { title: "Decisions" };
 
 interface PageProps {
   searchParams: Promise<{
@@ -135,6 +138,9 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
     now,
   });
   Object.assign(where, queryWhere);
+  // Private decisions are visible only to their author - the query language
+  // never emits a top-level OR, so this can't clobber a filter.
+  where.OR = decisionVisibilityWhere(session).OR;
 
   const [decisionsRaw, aggRows, slackLink] = await Promise.all([
     prisma.decision.findMany({
@@ -147,7 +153,7 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
       },
     }),
     prisma.decision.findMany({
-      where: { workspaceId },
+      where: decisionVisibilityWhere(session),
       select: {
         id: true,
         title: true,

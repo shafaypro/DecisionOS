@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { listTemplates } from "@/lib/templates";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -8,15 +8,14 @@ import { TemplateManager } from "./template-manager";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
 
+export const metadata = { title: "Templates" };
+
 export default async function TemplatesSettingsPage() {
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.role !== "admin") redirect("/settings");
 
-  const templates = await prisma.decisionTemplate.findMany({
-    where: { OR: [{ workspaceId: null }, { workspaceId: session.workspaceId }] },
-    orderBy: [{ isBuiltIn: "desc" }, { category: "asc" }, { name: "asc" }],
-  });
+  const templates = await listTemplates(session.workspaceId);
 
   return (
     <PageContainer>

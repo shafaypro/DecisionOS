@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 export const metadata = {
-  title: "DecisionOS: institutional memory for teams that ship",
+  title: { absolute: "DecisionOS: institutional memory for teams that ship" },
   description:
     "Capture why decisions were made, in under 15 seconds, from Slack or the web. Close the loop with automatic review reminders. For VP Eng at 25-150 person SaaS companies.",
 };

@@ -9,6 +9,8 @@ import { Text } from "@/components/ui/text";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ErrorAlert } from "@/components/ui/error-alert";
 import { formatRelativeDate } from "@/lib/utils";
+import { sendJson } from "@/lib/client-fetch";
+import { useToast } from "@/components/ui/toast";
 
 export interface NoteReplyRow {
   id: string;
@@ -39,6 +41,7 @@ export function NoteReplies({
   const [error, setError] = useState<string | undefined>();
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const toast = useToast();
 
   if (readOnly && replies.length === 0) return null;
 
@@ -67,12 +70,9 @@ export function NoteReplies({
   function handleDelete(replyId: string) {
     if (!confirm("Delete this reply?")) return;
     startTransition(async () => {
-      await fetch("/api/decisions/notes/replies", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ replyId }),
-      });
-      router.refresh();
+      const err = await sendJson("/api/decisions/notes/replies", "DELETE", { replyId });
+      if (err) toast.error(`Could not delete reply: ${err}`);
+      else router.refresh();
     });
   }
 
@@ -91,8 +91,9 @@ export function NoteReplies({
                 <button
                   disabled={pending}
                   onClick={() => handleDelete(reply.id)}
-                  className="opacity-0 group-hover/reply:opacity-100 transition-opacity text-slate-400 hover:text-red-500 disabled:opacity-30"
+                  className="opacity-0 group-hover/reply:opacity-100 focus-visible:opacity-100 transition-opacity text-slate-400 hover:text-red-500 disabled:opacity-30"
                   title="Delete reply"
+                  aria-label="Delete reply"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

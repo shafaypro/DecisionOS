@@ -38,6 +38,7 @@ export const CATEGORIES = [
 ] as const;
 
 export const STATUSES = [
+  { value: "draft",      label: "Draft",      hint: "Work in progress, not yet put forward" },
   { value: "proposed",   label: "Proposed",   hint: "Under discussion, no final call yet" },
   { value: "in_review",  label: "In Review",  hint: "Awaiting sign-off from stakeholders" },
   { value: "approved",   label: "Approved",   hint: "Decided and in effect" },
@@ -98,6 +99,27 @@ export const INTEGRATION_TYPES = [
   { value: "teams",  label: "Microsoft Teams" },
   { value: "email",  label: "Email (SMTP)" },
 ] as const;
+
+export const VISIBILITIES = [
+  { value: "workspace", label: "Workspace" },
+  { value: "private",   label: "Private" },
+] as const;
+
+/**
+ * Status values written by earlier releases (and by the old demo seed) that
+ * predate the current workflow. They are accepted on input and folded into
+ * their modern equivalent so filters, search, and analytics see one vocabulary.
+ */
+export const LEGACY_STATUS_ALIASES: Record<string, Status> = {
+  decided: "approved",
+  validated: "approved",
+  under_review: "in_review",
+};
+
+/** Map a possibly-legacy status onto the current workflow vocabulary. */
+export function normalizeStatus(status: string): string {
+  return LEGACY_STATUS_ALIASES[status] ?? status;
+}
 
 export type RelationType = typeof RELATION_TYPES[number]["value"];
 export type IntegrationType = typeof INTEGRATION_TYPES[number]["value"];
@@ -188,5 +210,11 @@ export function getLabelForValue<T extends { value: string; label: string }>(
   options: readonly T[],
   value: string
 ): string {
-  return options.find((o) => o.value === value)?.label ?? value;
+  return options.find((o) => o.value === value)?.label ?? humanize(value);
+}
+
+/** `under_review` → `Under review` - a readable fallback for unknown enum values. */
+export function humanize(value: string): string {
+  const spaced = value.replace(/[_-]+/g, " ").trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }

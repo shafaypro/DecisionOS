@@ -19,6 +19,8 @@ import { Sparkline } from "@/components/ui/sparkline";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
 
+export const metadata = { title: "Analytics" };
+
 function ProgressBar({ value, max, color = "bg-blue-500" }: { value: number; max: number; color?: string }) {
   const pct = max === 0 ? 0 : Math.round((value / max) * 100);
   return (

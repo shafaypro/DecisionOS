@@ -9,6 +9,8 @@ import { Shield, User, Users } from "lucide-react";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 
+export const metadata = { title: "Team" };
+
 export default async function TeamPage() {
   const session = await getSession();
   if (!session) redirect("/login");

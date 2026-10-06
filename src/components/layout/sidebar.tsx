@@ -7,12 +7,15 @@ import {
   ClipboardCheck,
   FileText,
   History,
+  KanbanSquare,
+  ListTodo,
   Network,
   Search,
   Settings,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
+  Tags,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,12 +27,15 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 // Badge counts are injected at render time, not part of the static array.
 const NAV_ITEMS = [
   { href: "/decisions",  label: "Decisions", icon: FileText },
+  { href: "/my-work",    label: "My work",   icon: ListTodo },
+  { href: "/board",      label: "Board",     icon: KanbanSquare },
   { href: "/ask",        label: "Ask",       icon: Sparkles },
   { href: "/graph",      label: "Graph",     icon: Network },
   { href: "/reviews",    label: "Reviews",   icon: ClipboardCheck, badgeKey: "reviewsDue" as const },
   { href: "/risks",      label: "Risks",     icon: ShieldAlert },
   { href: "/analytics",  label: "Analytics", icon: BarChart3 },
   { href: "/activity",   label: "Activity",  icon: History },
+  { href: "/tags",       label: "Tags",      icon: Tags },
   { href: "/team",       label: "Team",      icon: Users },
   { href: "/settings",   label: "Settings",  icon: Settings },
 ];
@@ -98,7 +104,14 @@ export function Sidebar({ userName, userEmail, reviewsDue = 0, isPlatformAdmin, 
             pathname === item.href || pathname.startsWith(`${item.href}/`);
           const badge = item.badgeKey === "reviewsDue" ? reviewsDue : 0;
           return (
-            <Link key={item.href} href={item.href} onClick={onNavigate} className="block">
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onNavigate}
+              aria-current={isActive ? "page" : undefined}
+              aria-label={badge > 0 ? `${item.label}, ${badge} due` : undefined}
+              className="block"
+            >
               <Row
                 hover={false}
                 title={item.label}
@@ -106,7 +119,7 @@ export function Sidebar({ userName, userEmail, reviewsDue = 0, isPlatformAdmin, 
                 titleClassName="pb-0.5"
                 leading={<Icon className={cn("h-4 w-4", isActive ? "text-slate-600" : "text-slate-400 group-hover:text-slate-500")} />}
                 trailing={badge > 0 ? (
-                  <Text as="span" size="2xs" weight="bold" color="inverse" leading="none">
+                  <Text as="span" size="2xs" weight="bold" color="inverse" leading="none" className="min-w-4 rounded-full bg-blue-600 px-1.5 py-0.5 text-center">
                     {badge > 99 ? "99+" : badge}
                   </Text>
                 ) : undefined}

@@ -31,13 +31,20 @@ const editAffordance = (
 /** Sidebar-style hover interactivity for an inline-editable row: darker resting text, darkens on hover. */
 const EDITABLE_ROW = "px-0 text-slate-600 hover:text-slate-800";
 
-async function patchField(id: string, field: string, value: string | null) {
-  const res = await fetch(`/api/decisions/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ [field]: value }),
-  });
-  return res.json() as Promise<{ error?: string }>;
+/** Never throws: a network failure or non-JSON reply comes back as `{ error }`. */
+async function patchField(id: string, field: string, value: string | null): Promise<{ error?: string }> {
+  try {
+    const res = await fetch(`/api/decisions/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { error: data.error ?? `Save failed (${res.status})` };
+    return data;
+  } catch {
+    return { error: "Could not reach the server - your edit was not saved." };
+  }
 }
 
 /**
@@ -102,7 +109,8 @@ export function EditableText({
     setSaving(true);
     const data = await patchField(decisionId, field, isTitle ? next : (next || null));
     setSaving(false);
-    if (data.error) { toast.error(data.error); setVal(value ?? ""); }
+    // Keep what they typed on screen so a failed save doesn't lose it.
+    if (data.error) { toast.error(data.error); setEditing(true); }
     else router.refresh();
   }
 
@@ -215,7 +223,7 @@ export function EditableField({
     setSaving(true);
     const data = await patchField(decisionId, field, next || null);
     setSaving(false);
-    if (data.error) { toast.error(data.error); setVal(value ?? ""); }
+    if (data.error) { toast.error(data.error); setEditing(true); }
     else router.refresh();
   }
 
@@ -329,12 +337,18 @@ export function EditableField({
   );
 }
 
-/** Status pill that opens a dropdown on click. */
-export function EditableStatus({
-  decisionId, value,
+/** A colored pill that opens a dropdown of `options` on click (status, category, impact). */
+export function EditablePill({
+  decisionId, field, value, options, colors, ariaLabel, suffix,
 }: {
   decisionId: string;
+  field: string;
   value: string;
+  options: readonly { value: string; label: string }[];
+  colors: Record<string, string>;
+  ariaLabel: string;
+  /** Appended to the label, e.g. " impact". */
+  suffix?: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -343,7 +357,7 @@ export function EditableStatus({
   async function onChange(next: string) {
     if (next === value) return;
     setSaving(true);
-    const data = await patchField(decisionId, "status", next);
+    const data = await patchField(decisionId, field, next);
     setSaving(false);
     if (data.error) toast.error(data.error);
     else router.refresh();
@@ -352,19 +366,34 @@ export function EditableStatus({
   return (
     <Select value={value} onValueChange={onChange} disabled={saving}>
       <SelectTrigger
+        aria-label={ariaLabel}
         className={cn(
-          "inline-flex h-6 w-auto items-center gap-1 rounded-full border px-2 tracking-tighter !shadow-none [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-60",
-          STATUS_COLORS[value] ?? "bg-slate-100 text-slate-600 border-slate-200",
+          "inline-flex h-6 w-auto items-center gap-1 whitespace-nowrap rounded-full border px-2 tracking-tighter !shadow-none [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-60",
+          colors[value] ?? "bg-slate-100 text-slate-600 border-slate-200",
         )}
       >
-        <span className="caps-label">{getLabelForValue(STATUSES, value)}</span>
+        <span className="caps-label">{getLabelForValue(options, value)}{suffix}</span>
       </SelectTrigger>
       <SelectContent>
-        {STATUSES.map((s) => (
-          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+/** Status pill that opens a dropdown on click. */
+export function EditableStatus({ decisionId, value }: { decisionId: string; value: string }) {
+  return (
+    <EditablePill
+      decisionId={decisionId}
+      field="status"
+      value={value}
+      options={STATUSES}
+      colors={STATUS_COLORS}
+      ariaLabel="Change status"
+    />
   );
 }
 

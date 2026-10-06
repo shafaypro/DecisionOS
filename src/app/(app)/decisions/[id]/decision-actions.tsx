@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { sendJson } from "@/lib/client-fetch";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,13 +125,14 @@ export function DecisionActions({
   }
 
   function handleArchive() {
-    if (!confirm("Archive this decision? It will be hidden from active views.")) return;
+    if (!confirm("Archive this decision? It stays searchable but is marked as no longer active.")) return;
     startArchive(async () => {
-      await fetch("/api/decisions/archive", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decisionId }),
-      });
+      const err = await sendJson("/api/decisions/archive", "POST", { decisionId });
+      if (err) {
+        toast.error(`Could not archive: ${err}`);
+        return;
+      }
+      toast.success("Decision archived");
       router.push("/decisions");
     });
   }
@@ -187,7 +189,7 @@ export function DecisionActions({
       />
 
       {supersedeOpen && (
-        <div className="absolute right-0 top-10 z-20 w-96 rounded-xs p-4 bg-white shadow-soft space-y-3">
+        <div className="absolute right-0 max-w-[calc(100vw-2rem)] top-10 z-20 w-96 rounded-xs p-4 bg-white shadow-soft space-y-3">
           <div>
             <Text as="h5">Supersede this decision</Text>
             <Text as="p">

@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,8 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
+
+export const metadata = { title: "My work" };
 
 const PRIORITY_DOT: Record<string, string> = {
   low: "bg-slate-400", medium: "bg-amber-400", high: "bg-orange-500", critical: "bg-red-500",
@@ -48,7 +51,7 @@ export default async function MyWorkPage() {
     // Decisions I own
     prisma.decision.findMany({
       where: {
-        workspaceId: session.workspaceId,
+        ...decisionVisibilityWhere(session),
         ownerUserId: session.userId,
         status: { notIn: ["archived"] },
       },
@@ -58,7 +61,7 @@ export default async function MyWorkPage() {
     // My reviews due in next 7 days
     prisma.decision.findMany({
       where: {
-        workspaceId: session.workspaceId,
+        ...decisionVisibilityWhere(session),
         ownerUserId: session.userId,
         reviewDate: { gte: now, lte: nextWeek },
         reviewedAt: null,
@@ -227,8 +230,8 @@ export default async function MyWorkPage() {
                       className="flex items-start gap-2 px-4 py-3 hover:bg-slate-50 transition-colors"
                     >
                       <div className="flex-1 min-w-0">
-                        <Text>{d.title}</Text>
-                        <Text as="span">{formatRelativeDate(d.updatedAt)}</Text>
+                        <Text as="p">{d.title}</Text>
+                        <Text as="p" size="xs" color="subtle">Updated {formatRelativeDate(d.updatedAt)}</Text>
                       </div>
                       <Badge className={STATUS_COLORS[d.status] ?? "bg-slate-100 text-slate-600"}>
                         {getLabelForValue(STATUSES, d.status)}

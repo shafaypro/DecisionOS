@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,23 @@ interface AppShellProps {
   reviewsDue: number;
   isPlatformAdmin?: boolean;
   children: React.ReactNode;
+}
+
+const DESKTOP_QUERY = "(min-width: 1024px)"; // Tailwind `lg`
+
+function subscribeDesktop(onChange: () => void) {
+  const mql = window.matchMedia(DESKTOP_QUERY);
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+}
+
+/** True at `lg` and up. Server render assumes desktop (the common case). */
+function useIsDesktop() {
+  return useSyncExternalStore(
+    subscribeDesktop,
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => true,
+  );
 }
 
 /**
@@ -36,11 +53,21 @@ export function AppShell({
     setMobileOpen(false);
   }
 
+  const isDesktop = useIsDesktop();
+  // The closed drawer is only translated off-screen; make it inert on mobile so
+  // keyboard and screen-reader users don't tab through invisible links.
+  const drawerHidden = !isDesktop && !mobileOpen;
+
   useEffect(() => {
     if (mobileOpen) {
       document.body.style.overflow = "hidden";
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === "Escape") setMobileOpen(false);
+      };
+      document.addEventListener("keydown", onKey);
       return () => {
         document.body.style.overflow = "";
+        document.removeEventListener("keydown", onKey);
       };
     }
   }, [mobileOpen]);
@@ -60,6 +87,8 @@ export function AppShell({
           "fixed inset-y-0 left-0 z-40 transition-transform duration-300 ease-out lg:static lg:z-auto lg:translate-x-0",
           mobileOpen ? "translate-x-0 shadow-soft" : "-translate-x-full",
         )}
+        id="app-navigation"
+        inert={drawerHidden}
       >
         <Sidebar
           workspaceName={workspaceName}
@@ -88,6 +117,8 @@ export function AppShell({
           onClick={() => setMobileOpen(true)}
           className="fixed top-3 left-3 z-30 flex h-9 w-9 items-center justify-center rounded-xs bg-white text-text-muted shadow-soft transition-colors hover:bg-slate-100 hover:text-text-primary lg:hidden"
           aria-label="Open navigation"
+          aria-controls="app-navigation"
+          aria-expanded={mobileOpen}
         >
           <Menu className="h-5 w-5" />
         </button>

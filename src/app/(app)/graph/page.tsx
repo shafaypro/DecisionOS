@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import { Network, Plus } from "lucide-react";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { Row } from "@/components/ui/row";
@@ -17,6 +18,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DecisionGraphCanvas } from "@/components/graph/decision-graph-canvas";
+
+export const metadata = { title: "Decision graph" };
 
 interface PageProps {
   searchParams: Promise<{ all?: string }>;
@@ -28,11 +31,10 @@ export default async function GraphPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const showAll = params.all === "1";
-  const workspaceId = session.workspaceId;
 
   const [decisions, relations] = await Promise.all([
     prisma.decision.findMany({
-      where: { workspaceId },
+      where: decisionVisibilityWhere(session),
       select: {
         id: true,
         title: true,
@@ -43,7 +45,7 @@ export default async function GraphPage({ searchParams }: PageProps) {
       orderBy: { updatedAt: "desc" },
     }),
     prisma.decisionRelation.findMany({
-      where: { fromDecision: { workspaceId } },
+      where: { fromDecision: decisionVisibilityWhere(session), toDecision: decisionVisibilityWhere(session) },
       select: { fromDecisionId: true, toDecisionId: true, relationType: true },
     }),
   ]);

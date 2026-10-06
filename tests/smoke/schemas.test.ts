@@ -9,6 +9,8 @@ import {
   ReactionSchema,
   BulkSchema,
   ActionItemPatchSchema,
+  DecisionWriteSchema,
+  DecisionPatchSchema,
 } from "../../src/lib/schemas";
 
 /**
@@ -19,6 +21,42 @@ import {
  * "at least one field" platform refine, and the shared parseBody result shape.
  */
 export const schemasTests = {
+  "DecisionWriteSchema accepts the canonical vocabulary"() {
+    const r = parseBody(DecisionWriteSchema, {
+      title: "Adopt feature flags",
+      status: "draft",
+      category: "engineering",
+      impactLevel: "high",
+      visibility: "private",
+    });
+    assert(r.ok, "canonical values should validate");
+  },
+
+  "DecisionWriteSchema folds legacy statuses into the current workflow"() {
+    for (const [legacy, modern] of [
+      ["decided", "approved"],
+      ["validated", "approved"],
+      ["under_review", "in_review"],
+    ] as const) {
+      const r = parseBody(DecisionPatchSchema, { status: legacy });
+      assert(r.ok, `${legacy} should be accepted`);
+      if (r.ok) assertEqual(r.data.status, modern);
+    }
+  },
+
+  "DecisionWriteSchema rejects unknown status, category, impact, and visibility"() {
+    for (const bad of [
+      { status: "done" },
+      { category: "legal" },
+      { impactLevel: "critical" },
+      // A typo here used to silently make a decision private.
+      { visibility: "Workspace" },
+    ]) {
+      const r = parseBody(DecisionPatchSchema, bad);
+      assert(!r.ok, `${JSON.stringify(bad)} should be rejected`);
+    }
+  },
+
   "parseBody returns typed data on success"() {
     const r = parseBody(ReactionSchema, { emoji: "rocket" });
     assert(r.ok, "should succeed");

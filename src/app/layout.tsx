@@ -10,7 +10,8 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DecisionOS: Team Decision Intelligence",
+  // Pages set a short `title` ("Reviews"); the template brands it in the tab.
+  title: { default: "DecisionOS: Team Decision Intelligence", template: "%s · DecisionOS" },
   description: "A structured system of record for team decisions. Record why decisions were made, who made them, and whether they worked.",
 };
 

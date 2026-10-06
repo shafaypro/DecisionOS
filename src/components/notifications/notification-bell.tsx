@@ -49,6 +49,8 @@ export function NotificationBell() {
         setNotifications(data.notifications ?? []);
         setUnreadCount(data.unreadCount ?? 0);
       })
+      // Polling - a dropped request (offline, deploy in progress) just waits for the next tick.
+      .catch(() => {})
       .finally(() => setLoading(false));
   }
 
@@ -214,14 +216,15 @@ export function NotificationBell() {
           }
         }}
         className="group flex w-full items-center gap-3 rounded-xs px-4 py-3 transition-colors hover:bg-[#f4f5f9]"
-        aria-label="Notifications"
+        aria-label={unreadCount > 0 ? `Inbox, ${unreadCount} unread` : "Inbox"}
+        aria-expanded={open}
       >
         <Inbox className="h-4 w-4 flex-shrink-0 text-slate-400" />
         <Text as="span" size="sm" color="secondary">
           Inbox
         </Text>
         {unreadCount > 0 && (
-          <Text as="span" size="2xs" weight="bold" color="inverse" leading="none">
+          <Text as="span" size="2xs" weight="bold" color="inverse" leading="none" className="min-w-4 rounded-full bg-blue-600 px-1.5 py-0.5 text-center">
             {unreadCount > 99 ? "99+" : unreadCount}
           </Text>
         )}

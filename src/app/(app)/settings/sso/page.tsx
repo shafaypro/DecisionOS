@@ -9,6 +9,8 @@ import { ArrowLeft, CheckCircle2, Lock } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
 
+export const metadata = { title: "Single sign-on" };
+
 interface PageProps {
   searchParams: Promise<{ saved?: string }>;
 }
