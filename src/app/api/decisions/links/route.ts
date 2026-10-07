@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
-import { sameWorkspace } from "@/lib/tenant";
+import { visibleDecision } from "@/lib/tenant";
 import { LinkWriteSchema, LinkDeleteSchema, type LinkWriteInput, type LinkDeleteInput } from "@/lib/schemas";
 
 export const POST = withApi<LinkWriteInput>(
   { require: "writer", schema: LinkWriteSchema },
   async ({ session, body }) => {
     const { decisionId, label, url, linkType } = body;
-    const decision = sameWorkspace(
+    const decision = visibleDecision(
       await prisma.decision.findUnique({ where: { id: decisionId } }),
       session,
     );

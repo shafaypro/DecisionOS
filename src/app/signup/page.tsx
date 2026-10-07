@@ -32,7 +32,7 @@ function SignupForm() {
             <LogoMark size={56} />
           </div>
           <Wordmark size="3xl" />
-          <Text as="p">
+          <Text as="p" className="mt-2 text-slate-300">
             Create your team workspace
           </Text>
         </div>
@@ -53,6 +53,7 @@ function SignupForm() {
               label="Workspace name"
               id="workspaceName"
               name="workspaceName"
+              defaultValue={state?.values?.workspaceName}
               type="text"
               required
               placeholder="Acme Inc"
@@ -63,6 +64,7 @@ function SignupForm() {
               label="Your name"
               id="name"
               name="name"
+              defaultValue={state?.values?.name}
               type="text"
               autoComplete="name"
               required
@@ -73,6 +75,7 @@ function SignupForm() {
               label="Email address"
               id="email"
               name="email"
+              defaultValue={state?.values?.email}
               type="email"
               autoComplete="email"
               required
@@ -86,6 +89,7 @@ function SignupForm() {
               type="password"
               autoComplete="new-password"
               required
+              minLength={8}
               placeholder="Min. 8 characters"
             />
 

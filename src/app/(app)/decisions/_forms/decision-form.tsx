@@ -3,14 +3,15 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Circle, Save, Send, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Save, Send, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Text } from "@/components/ui/text";
 import { FONT_WEIGHT, TEXT_SIZE } from "@/lib/typography";
-import { cn, STATUSES } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
+import { CATEGORIES, IMPACT_LEVELS, STATUSES, cn } from "@/lib/utils";
 
 interface SimilarMatch {
   id: string;
@@ -121,13 +122,100 @@ interface Member {
   name: string;
 }
 
+/** A template as the form needs it - `defaultValues` is a JSON-encoded field map. */
+export interface FormTemplate {
+  id: string;
+  name: string;
+  category: string;
+  description: string | null;
+  defaultValues: string;
+}
+
+/** Fields a template may pre-fill. Anything else in its JSON is ignored. */
+const TEMPLATE_FIELDS = [
+  "summary",
+  "category",
+  "impactLevel",
+  "problemStatement",
+  "chosenOption",
+  "rationale",
+  "alternativesConsidered",
+  "assumptions",
+  "risks",
+] as const;
+type TemplateField = (typeof TEMPLATE_FIELDS)[number];
+
+function parseTemplate(t: FormTemplate): Partial<Record<TemplateField, string>> {
+  let raw: Record<string, unknown> = {};
+  try {
+    raw = JSON.parse(t.defaultValues) as Record<string, unknown>;
+  } catch {
+    // A malformed custom template still contributes its category.
+  }
+  const out: Partial<Record<TemplateField, string>> = {};
+  for (const f of TEMPLATE_FIELDS) {
+    if (typeof raw[f] === "string" && raw[f]) out[f] = raw[f] as string;
+  }
+  out.category ??= t.category;
+  return out;
+}
+
+function TemplateChooser({
+  templates,
+  appliedId,
+  onApply,
+}: {
+  templates: FormTemplate[];
+  appliedId: string | null;
+  onApply: (t: FormTemplate) => void;
+}) {
+  return (
+    <div className="rounded-xs bg-white p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <FileText className="h-4 w-4 text-blue-600" aria-hidden />
+        <Text as="p">Start from a template</Text>
+        <Text as="span" color="muted">
+          - fills empty fields only, so nothing you typed is overwritten
+        </Text>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {templates.map((t) => {
+          const applied = appliedId === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => onApply(t)}
+              title={t.description ?? undefined}
+              aria-pressed={applied}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                applied
+                  ? "border-blue-300 bg-blue-50 text-blue-700"
+                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
+              )}
+            >
+              {applied && <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />}
+              <Text>{t.name}</Text>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface DecisionFormProps {
   decisionId?: string;
   supersedesId?: string;
   supersedesTitle?: string;
   defaultValues?: {
     title?: string;
+    summary?: string;
+    category?: string;
+    impactLevel?: string;
     status?: string;
+    visibility?: string;
     ownerUserId?: string;
     accountableUserId?: string;
     consultedIds?: string[];
@@ -141,6 +229,9 @@ interface DecisionFormProps {
     reviewDate?: string;
   };
   members: Member[];
+  templates?: FormTemplate[];
+  /** Show "Suggest with AI" - only when the workspace has a model configured. */
+  aiEnabled?: boolean;
   isEdit?: boolean;
 }
 
@@ -200,13 +291,26 @@ export function DecisionForm({
   supersedesTitle,
   defaultValues = {},
   members,
+  templates = [],
+  aiEnabled = false,
   isEdit,
 }: DecisionFormProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | undefined>();
   const router = useRouter();
+  const toast = useToast();
 
   const [title, setTitle] = useState(defaultValues.title ?? "");
+  const [summary, setSummary] = useState(defaultValues.summary ?? "");
+  const [category, setCategory] = useState(defaultValues.category ?? "other");
+  const [impactLevel, setImpactLevel] = useState(defaultValues.impactLevel ?? "medium");
+  const [status, setStatus] = useState(defaultValues.status ?? "approved");
+  const [isPrivate, setIsPrivate] = useState(defaultValues.visibility === "private");
+  const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
+  // Bumped whenever a template or AI fills fields, so collapsed sections that
+  // just received content re-mount open.
+  const [prefillVersion, setPrefillVersion] = useState(0);
+  const [aiPending, setAiPending] = useState(false);
   const [rationale, setRationale] = useState(defaultValues.rationale ?? "");
   const [problemStatement, setProblemStatement] = useState(defaultValues.problemStatement ?? "");
   const [chosenOption, setChosenOption] = useState(defaultValues.chosenOption ?? "");
@@ -223,11 +327,77 @@ export function DecisionForm({
     { label: "Solution clear", done: chosenOption.trim().length > 0 },
   ];
   const qualityScore = qualityItems.filter((item) => item.done).length;
+  const statusHint = STATUSES.find((s) => s.value === status)?.hint;
+
+  /** Fill only the fields that are still empty, so a template never clobbers typed text. */
+  function applyTemplate(t: FormTemplate) {
+    const v = parseTemplate(t);
+    const fill = (current: string, next: string | undefined, set: (x: string) => void) => {
+      if (next && !current.trim()) set(next);
+    };
+    fill(summary, v.summary, setSummary);
+    fill(problemStatement, v.problemStatement, setProblemStatement);
+    fill(chosenOption, v.chosenOption, setChosenOption);
+    fill(rationale, v.rationale, setRationale);
+    fill(alternativesConsidered, v.alternativesConsidered, setAlternativesConsidered);
+    fill(assumptions, v.assumptions, setAssumptions);
+    fill(risks, v.risks, setRisks);
+    // Classification has no "empty" state - the template's choice wins.
+    if (v.category && CATEGORIES.some((c) => c.value === v.category)) setCategory(v.category);
+    if (v.impactLevel && IMPACT_LEVELS.some((i) => i.value === v.impactLevel)) setImpactLevel(v.impactLevel);
+    setAppliedTemplateId(t.id);
+    setPrefillVersion((v) => v + 1);
+  }
+
+  /**
+   * Ask the configured model for a first pass at the framing: problem,
+   * alternatives, assumptions, risks. Fills empty fields only, and never the
+   * rationale or the solution - what was decided and why must come from the
+   * people who decided it.
+   */
+  async function suggestWithAI() {
+    if (title.trim().length < 8 || aiPending) return;
+    setAiPending(true);
+    try {
+      const res = await fetch("/api/decisions/ai-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), category }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { draft?: Record<string, unknown>; error?: string };
+      if (!res.ok || !data.draft) {
+        toast.error(data.error ?? "AI suggestions failed. Try again.");
+        return;
+      }
+      const d = data.draft;
+      const str = (k: string) => (typeof d[k] === "string" ? (d[k] as string).trim() : "");
+      let filled = 0;
+      const fill = (current: string, next: string, set: (x: string) => void) => {
+        if (next && !current.trim()) {
+          set(next);
+          filled++;
+        }
+      };
+      fill(problemStatement, str("problemStatement"), setProblemStatement);
+      fill(alternativesConsidered, str("alternativesConsidered"), setAlternativesConsidered);
+      fill(assumptions, str("assumptions"), setAssumptions);
+      fill(risks, str("risks"), setRisks);
+      setPrefillVersion((v) => v + 1);
+      if (filled > 0) {
+        toast.success(`Added suggestions to ${filled} empty field${filled === 1 ? "" : "s"}. Edit them - they're a starting point.`);
+      } else {
+        toast.info("Those fields already have content, so nothing was changed.");
+      }
+    } catch {
+      toast.error("Could not reach the server.");
+    } finally {
+      setAiPending(false);
+    }
+  }
 
   function handleSubmit(saveAsProposed?: boolean) {
     if (pending) return;
 
-    const statusEl = document.getElementById("status") as HTMLSelectElement | null;
     const ownerEl = document.getElementById("ownerUserId") as HTMLSelectElement | null;
     const dateEl = document.getElementById("decisionDate") as HTMLInputElement | null;
     const reviewDateEl = document.getElementById("reviewDate") as HTMLInputElement | null;
@@ -245,7 +415,10 @@ export function DecisionForm({
 
     const data = {
       title: title.trim(),
-      status: saveAsProposed ? "proposed" : statusEl?.value ?? "approved",
+      summary: summary.trim() || null,
+      category,
+      impactLevel,
+      status: saveAsProposed ? "proposed" : status,
       ownerUserId: ownerEl?.value || null,
       accountableUserId: accountableEl?.value || null,
       consultedIds,
@@ -257,7 +430,7 @@ export function DecisionForm({
       alternativesConsidered: alternativesConsidered || null,
       assumptions: assumptions || null,
       risks: risks || null,
-      visibility: "workspace",
+      visibility: isPrivate ? "private" : "workspace",
     };
 
     setError(undefined);
@@ -280,11 +453,18 @@ export function DecisionForm({
 
       const id = isEdit ? decisionId : json.id;
       if (!isEdit && id && supersedesId) {
-        await fetch(`/api/decisions/${supersedesId}/supersede`, {
+        // The new decision is saved either way; say so if the link didn't take,
+        // rather than leaving the old one silently un-superseded.
+        const linked = await fetch(`/api/decisions/${supersedesId}/supersede`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ toDecisionId: id }),
-        }).catch(() => {});
+        })
+          .then((r) => r.ok)
+          .catch(() => false);
+        if (!linked) {
+          toast.error("Decision saved, but the earlier one could not be marked superseded. Use Supersede on it to retry.");
+        }
       }
       router.push(`/decisions/${id}`);
     });
@@ -316,6 +496,10 @@ export function DecisionForm({
         </div>
       )}
 
+      {!isEdit && templates.length > 0 && (
+        <TemplateChooser templates={templates} appliedId={appliedTemplateId} onApply={applyTemplate} />
+      )}
+
       <div className="rounded-xs bg-white p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
@@ -324,8 +508,11 @@ export function DecisionForm({
               A strong record explains why, what changed, and who owns the decision.
             </Text>
           </div>
-          <div className="rounded-xs bg-slate-900 px-2.5 py-1">
-            <Text>
+          <div
+            className="rounded-xs bg-slate-900 px-2.5 py-1"
+            aria-label={`${qualityScore} of ${qualityItems.length} quality checks met`}
+          >
+            <Text color="inverse">
               {qualityScore}/{qualityItems.length}
             </Text>
           </div>
@@ -351,6 +538,24 @@ export function DecisionForm({
           className={TEXT_SIZE.base}
           autoFocus
         />
+        {aiEnabled && !isEdit && (
+          <div className="mt-2 flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={aiPending || title.trim().length < 8}
+              onClick={suggestWithAI}
+              icon={<Sparkles className="h-3.5 w-3.5" />}
+              title={title.trim().length < 8 ? "Type a fuller title first" : undefined}
+            >
+              {aiPending ? "Thinking…" : "Suggest framing with AI"}
+            </Button>
+            <Text size="xs" color="subtle">
+              Fills empty problem, alternatives, assumptions, and risks. Never your rationale.
+            </Text>
+          </div>
+        )}
         {!isEdit && (
           <SimilarDecisionsHint
             title={title}
@@ -358,6 +563,17 @@ export function DecisionForm({
           />
         )}
       </div>
+
+      <Input
+        label="One-line summary"
+        id="summary"
+        name="summary"
+        maxLength={1000}
+        value={summary}
+        onChange={(e) => setSummary(e.target.value)}
+        placeholder="e.g. Replacing SQLite so production can handle concurrent writers"
+        hint="Shown under the title in lists and search results."
+      />
 
       <Textarea
         label={<>Why? (Rationale) <Text>*</Text></>}
@@ -398,6 +614,35 @@ export function DecisionForm({
       />
 
       <div className="grid grid-cols-1 gap-4 rounded-xs bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-3">
+        <NativeSelect
+          label="Category"
+          id="category"
+          name="category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+          {CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </NativeSelect>
+
+        <NativeSelect
+          label="Impact"
+          id="impactLevel"
+          name="impactLevel"
+          value={impactLevel}
+          onChange={(e) => setImpactLevel(e.target.value)}
+          hint="High-impact decisions rank first in the risk register."
+        >
+          {IMPACT_LEVELS.map((i) => (
+            <option key={i.value} value={i.value}>
+              {i.label}
+            </option>
+          ))}
+        </NativeSelect>
+
         <NativeSelect
           label="Owner (Responsible)"
           id="ownerUserId"
@@ -459,14 +704,12 @@ export function DecisionForm({
           label="Status"
           id="status"
           name="status"
-          defaultValue={defaultValues.status ?? "approved"}
-          hint={(() => {
-            const selected = STATUSES.find((s) => s.value === (defaultValues.status ?? "approved"));
-            return selected && "hint" in selected ? (selected as { hint?: string }).hint : undefined;
-          })()}
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          hint={statusHint}
         >
           {STATUSES.map((s) => (
-            <option key={s.value} value={s.value} title={"hint" in s ? (s as { hint?: string }).hint : undefined}>
+            <option key={s.value} value={s.value} title={s.hint}>
               {s.label}
             </option>
           ))}
@@ -481,9 +724,26 @@ export function DecisionForm({
         />
       </div>
 
+      <label className="flex items-start gap-3 rounded-xs bg-white px-4 py-3">
+        <input
+          type="checkbox"
+          checked={isPrivate}
+          onChange={(e) => setIsPrivate(e.target.checked)}
+          className="mt-1 rounded-xs border-slate-300"
+        />
+        <span>
+          <Text as="span" weight="medium">Private</Text>
+          <Text as="p" size="sm" color="muted">
+            Only you can see it - useful for a sensitive call (compensation, personnel) or a draft you&apos;re not
+            ready to show. You can open it to the workspace later.
+          </Text>
+        </span>
+      </label>
+
       <Disclosure
+        key={`alt-${prefillVersion}`}
         label="Alternatives (optional)"
-        defaultOpen={!!defaultValues.alternativesConsidered}
+        defaultOpen={!!alternativesConsidered}
       >
         <Textarea
           id="alternativesConsidered"
@@ -507,8 +767,9 @@ export function DecisionForm({
       </Disclosure>
 
       <Disclosure
+        key={`ar-${prefillVersion}`}
         label="Assumptions and risks (optional)"
-        defaultOpen={!!(defaultValues.assumptions || defaultValues.risks)}
+        defaultOpen={!!(assumptions || risks)}
       >
         <div className="space-y-4">
           <Textarea
@@ -531,9 +792,9 @@ export function DecisionForm({
       </Disclosure>
 
       <div className="sticky bottom-0 -mx-1 flex items-center justify-between gap-3 border-t border-slate-100 bg-white/95 px-1 py-4 backdrop-blur">
-        <Text>Ctrl/Cmd + Enter approves the decision</Text>
+        <Text>Ctrl/Cmd + Enter saves with the selected status</Text>
         <div className="flex items-center gap-3">
-          {!isEdit && (
+          {!isEdit && status !== "proposed" && (
             <Button
               type="button"
               variant="outline"
@@ -545,7 +806,7 @@ export function DecisionForm({
             </Button>
           )}
           <Button type="button" disabled={pending} onClick={() => handleSubmit(false)} icon={<Send className="h-4 w-4" />}>
-            {isEdit ? "Save changes" : "Approve decision"}
+            {isEdit ? "Save changes" : `Save as ${STATUSES.find((s) => s.value === status)?.label.toLowerCase() ?? status}`}
           </Button>
         </div>
       </div>

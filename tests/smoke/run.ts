@@ -36,6 +36,7 @@ import { decisionQualityTests } from "./decision-quality.test";
 import { decisionExportTests } from "./decision-export.test";
 import { trendsTests } from "./trends.test";
 import { openapiTests } from "./openapi.test";
+import { passwordTokenTests } from "./password-token.test";
 
 type TestFn = () => void | Promise<void>;
 type Suite = { name: string; tests: Record<string, TestFn> };
@@ -85,6 +86,7 @@ const SUITES: Suite[] = [
   { name: "decision export (Markdown ADR + JSON envelope)", tests: decisionExportTests },
   { name: "trends (time series + cycle times)", tests: trendsTests },
   { name: "openapi (spec integrity vs the route tree)", tests: openapiTests },
+  { name: "password token (invite + reset links)", tests: passwordTokenTests },
 ];
 
 async function main() {

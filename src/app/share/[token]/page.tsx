@@ -12,8 +12,12 @@ import { Separator } from "@/components/ui/separator";
 import { publicShareLimiter } from "@/lib/rate-limit";
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ token: string }>;
 }
+
+// Public links shouldn't be indexed - sharing a link with a partner is not
+// publishing it to search engines.
+export const metadata = { title: "Shared decision", robots: { index: false, follow: false } };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -29,7 +33,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default async function ShareDecisionPage({ params }: PageProps) {
-  const { id } = await params;
+  const { token } = await params;
 
   // Rate-limit unauthenticated share views per IP to deter scrapers.
   const h = await headers();
@@ -52,10 +56,13 @@ export default async function ShareDecisionPage({ params }: PageProps) {
     );
   }
 
+  // Only an explicitly created link resolves - never a raw decision id - and
+  // only while the workspace allows public links and the decision is
+  // workspace-visible. Every miss is the same 404, so nothing leaks.
   const decision = await prisma.decision.findUnique({
-    where: { id },
+    where: { shareToken: token },
     include: {
-      workspace: { select: { name: true } },
+      workspace: { select: { name: true, publicSharing: true } },
       createdBy: { select: { name: true } },
       owner: { select: { name: true } },
       reviews: {
@@ -66,23 +73,7 @@ export default async function ShareDecisionPage({ params }: PageProps) {
     },
   });
 
-  if (!decision) notFound();
-
-  if (decision.visibility !== "workspace") {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <Lock className="h-10 w-10 text-text-subtle mx-auto mb-3" />
-          <Text as="h2">
-            This decision is private
-          </Text>
-          <Text as="p">
-            Only workspace members can view it.
-          </Text>
-        </div>
-      </div>
-    );
-  }
+  if (!decision || !decision.workspace.publicSharing || decision.visibility !== "workspace") notFound();
 
   return (
     <div className="min-h-screen bg-slate-50">

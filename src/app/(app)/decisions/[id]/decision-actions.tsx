@@ -2,13 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { sendJson } from "@/lib/client-fetch";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { useToast } from "@/components/ui/toast";
+import { SharePanel } from "./share-panel";
 import {
-  Quote, Check, Share2, GitBranch, AlertCircle, Archive, History,
+  Quote, Check, GitBranch, AlertCircle, Archive, History,
 } from "lucide-react";
 
 interface DecisionLite {
@@ -24,6 +26,9 @@ interface Props {
   capturedOn: string; // already-formatted date string from the server
   status: string;
   workspaceDecisions: DecisionLite[];
+  shareUrl: string | null;
+  sharingEnabled: boolean;
+  isPrivate: boolean;
 }
 
 /**
@@ -40,12 +45,14 @@ export function DecisionActions({
   capturedOn,
   status,
   workspaceDecisions,
+  shareUrl,
+  sharingEnabled,
+  isPrivate,
 }: Props) {
   const router = useRouter();
   const toast = useToast();
 
   const [citeCopied, setCiteCopied] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
 
   const [supersedeOpen, setSupersedeOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -61,7 +68,9 @@ export function DecisionActions({
 
   function buildCitation(): string {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const url = `${origin}/share/${decisionId}`;
+    // Cite the public page when one exists; otherwise the in-app page, which
+    // works for anyone in the workspace.
+    const url = shareUrl ?? `${origin}/decisions/${decisionId}`;
     const lines: string[] = [];
     lines.push(`> **Why:** ${title}`);
     lines.push(">");
@@ -84,17 +93,6 @@ export function DecisionActions({
       setCiteCopied(true);
       toast.success("Why citation copied. Paste into Linear, PRs, docs");
       setTimeout(() => setCiteCopied(false), 2000);
-    } catch {
-      toast.error("Couldn't copy. Your browser may have blocked clipboard access");
-    }
-  }
-
-  async function handleShare() {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}/share/${decisionId}`);
-      setShareCopied(true);
-      toast.success("Share link copied to clipboard");
-      setTimeout(() => setShareCopied(false), 2000);
     } catch {
       toast.error("Couldn't copy. Your browser may have blocked clipboard access");
     }
@@ -124,13 +122,14 @@ export function DecisionActions({
   }
 
   function handleArchive() {
-    if (!confirm("Archive this decision? It will be hidden from active views.")) return;
+    if (!confirm("Archive this decision? It stays searchable but is marked as no longer active.")) return;
     startArchive(async () => {
-      await fetch("/api/decisions/archive", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decisionId }),
-      });
+      const err = await sendJson("/api/decisions/archive", "POST", { decisionId });
+      if (err) {
+        toast.error(`Could not archive: ${err}`);
+        return;
+      }
+      toast.success("Decision archived");
       router.push("/decisions");
     });
   }
@@ -153,12 +152,11 @@ export function DecisionActions({
         icon={citeCopied ? <Check className="h-4 w-4 text-emerald-600" /> : <Quote className="h-4 w-4" />}
       />
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleShare}
-        title="Copy share link"
-        icon={shareCopied ? <Check className="h-4 w-4 text-green-600" /> : <Share2 className="h-4 w-4" />}
+      <SharePanel
+        decisionId={decisionId}
+        initialUrl={shareUrl}
+        sharingEnabled={sharingEnabled}
+        isPrivate={isPrivate}
       />
 
       {canSupersede && (
@@ -187,7 +185,7 @@ export function DecisionActions({
       />
 
       {supersedeOpen && (
-        <div className="absolute right-0 top-10 z-20 w-96 rounded-xs p-4 bg-white shadow-soft space-y-3">
+        <div className="absolute right-0 max-w-[calc(100vw-2rem)] top-10 z-20 w-96 rounded-xs p-4 bg-white shadow-soft space-y-3">
           <div>
             <Text as="h5">Supersede this decision</Text>
             <Text as="p">

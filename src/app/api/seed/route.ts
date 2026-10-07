@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { BUILTIN_TEMPLATES } from "@/lib/builtin-templates";
 
 export async function GET() {
   if (process.env.NODE_ENV === "production") {
@@ -48,7 +49,7 @@ export async function GET() {
       workspaceId: workspace.id, createdByUserId: admin.id, ownerUserId: member1.id,
       title: "Migrate to PostgreSQL for production database",
       summary: "Replacing SQLite with PostgreSQL for production scalability",
-      category: "engineering", status: "validated", outcomeStatus: "successful", impactLevel: "high",
+      category: "engineering", status: "approved", outcomeStatus: "successful", impactLevel: "high",
       problemStatement: "Our SQLite database causes concurrency issues under load. We need a production-grade solution with concurrent writers, better indexing, and replication.",
       chosenOption: "Migrate to PostgreSQL on AWS RDS with read replicas for dashboard queries.",
       rationale: "PostgreSQL offers the relational model we need, excellent performance, proven reliability at scale, and strong ecosystem support. AWS RDS removes operational overhead.",
@@ -73,7 +74,7 @@ export async function GET() {
       workspaceId: workspace.id, createdByUserId: admin.id, ownerUserId: admin.id,
       title: "Focus Q2 roadmap on decision review workflow",
       summary: "Prioritizing review and outcome tracking over AI capabilities",
-      category: "product", status: "decided", outcomeStatus: "unknown", impactLevel: "high",
+      category: "product", status: "approved", outcomeStatus: "unknown", impactLevel: "high",
       problemStatement: "Two competing Q2 directions: AI-powered drafting vs review and outcome tracking. Must commit to one.",
       chosenOption: "Build the review workflow first - outcome tracking, review reminders, lessons learned, and review history UI.",
       rationale: "The core product promise is decision traceability. Without a review loop, decisions become archives. User interviews confirm teams forget to review.",
@@ -105,7 +106,7 @@ export async function GET() {
       workspaceId: workspace.id, createdByUserId: admin.id, ownerUserId: member1.id,
       title: "Use Resend for transactional email instead of SendGrid",
       summary: "Switching email provider for better DX and cost",
-      category: "business", status: "decided", outcomeStatus: "unknown", impactLevel: "low",
+      category: "business", status: "approved", outcomeStatus: "unknown", impactLevel: "low",
       problemStatement: "SendGrid's API is complex, pricing unpredictable at scale, and DX is outdated.",
       chosenOption: "Switch to Resend - modern API, React email templates, generous free tier.",
       rationale: "Significantly better developer experience, React Email support, transparent pricing.",
@@ -119,7 +120,7 @@ export async function GET() {
       workspaceId: workspace.id, createdByUserId: member1.id, ownerUserId: member1.id,
       title: "Implement weekly async decision review standup",
       summary: "Replacing monthly in-person reviews with async weekly check-ins",
-      category: "operations", status: "under_review", outcomeStatus: "mixed", impactLevel: "medium",
+      category: "operations", status: "in_review", outcomeStatus: "mixed", impactLevel: "medium",
       problemStatement: "Monthly review meetings are too infrequent. Daily meetings too much overhead.",
       chosenOption: "Weekly async standup: owners post 2-sentence updates in Slack by Thursday EOD.",
       rationale: "Async respects deep work time, weekly keeps decisions fresh.",
@@ -192,6 +193,42 @@ export async function GET() {
       { fromDecisionId: d6.id, toDecisionId: d3.id, relationType: "conflicts_with", createdByUserId: admin.id },
     ],
   });
+
+  const [infraTag, hiringTag, processTag] = await Promise.all(
+    [
+      { name: "infrastructure", color: "#2563eb" },
+      { name: "hiring", color: "#db2777" },
+      { name: "process", color: "#059669" },
+    ].map((t) => prisma.tag.create({ data: { workspaceId: workspace.id, ...t } })),
+  );
+  await prisma.decisionTag.createMany({
+    data: [
+      { decisionId: d1.id, tagId: infraTag.id },
+      { decisionId: d6.id, tagId: infraTag.id },
+      { decisionId: d3.id, tagId: hiringTag.id },
+      { decisionId: d2.id, tagId: processTag.id },
+      { decisionId: d5.id, tagId: processTag.id },
+    ],
+  });
+
+  // Follow-through work so the board and "My work" aren't empty on first run.
+  await prisma.actionItem.createMany({
+    data: [
+      { workspaceId: workspace.id, decisionId: d1.id, title: "Decommission the old SQLite backups", status: "done", priority: "low", assigneeId: member1.id, createdById: admin.id, position: 0 },
+      { workspaceId: workspace.id, decisionId: d3.id, title: "Write the distributed-systems interview loop", status: "in_progress", priority: "high", assigneeId: member2.id, createdById: admin.id, dueDate: nextWeek, position: 0 },
+      { workspaceId: workspace.id, decisionId: d4.id, title: "Move password-reset emails to Resend", status: "open", priority: "medium", assigneeId: admin.id, createdById: member1.id, dueDate: nextMonth, position: 0 },
+      { workspaceId: workspace.id, decisionId: d5.id, title: "Collect feedback after four async standups", status: "in_review", priority: "medium", assigneeId: admin.id, createdById: member1.id, dueDate: lastWeek, position: 0 },
+      { workspaceId: workspace.id, decisionId: d6.id, title: "Price out a self-hosted deployment", status: "open", priority: "critical", assigneeId: member2.id, createdById: admin.id, position: 1 },
+    ],
+  });
+
+  for (const template of BUILTIN_TEMPLATES) {
+    await prisma.decisionTemplate.upsert({
+      where: { id: template.id },
+      update: {},
+      create: { ...template, workspaceId: null, isBuiltIn: true },
+    });
+  }
 
   // Audit events
   for (const [d, userId] of [[d1, admin.id], [d2, admin.id], [d4, admin.id], [d5, member1.id]] as [{ id: string }, string][]) {

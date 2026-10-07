@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { AskPanel } from "@/components/decisions/ask-panel";
 
 export const metadata = {
-  title: "Ask DecisionOS",
+  title: "Ask",
   description: "Ask questions about your team's decisions and get grounded, cited answers.",
 };
 

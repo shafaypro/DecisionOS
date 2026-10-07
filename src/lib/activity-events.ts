@@ -13,6 +13,8 @@ export const ACTIVITY_EVENT_TYPES = [
   "link_added",
   "archived",
   "superseded",
+  "share_enabled",
+  "share_revoked",
 ] as const;
 
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number];
@@ -27,6 +29,8 @@ const LABELS: Record<string, string> = {
   link_added: "linked a resource to",
   archived: "archived",
   superseded: "superseded",
+  share_enabled: "created a public link for",
+  share_revoked: "revoked the public link for",
 };
 
 /** A verb phrase for a feed line: "<name> <verb> <decision>". */

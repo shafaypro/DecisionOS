@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
+import { actionItemVisibilityWhere, visibleDecision } from "@/lib/tenant";
 import { ActionItemWriteSchema, type ActionItemWriteInput } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
 
@@ -19,7 +20,7 @@ export const GET = withApi(
     const status = searchParams.get("status");
     const myItems = searchParams.get("mine") === "true";
 
-    const where: Record<string, unknown> = { workspaceId: session.workspaceId };
+    const where: Record<string, unknown> = actionItemVisibilityWhere(session);
     if (assigneeId) where.assigneeId = assigneeId;
     if (myItems) where.assigneeId = session.userId;
     if (decisionId) where.decisionId = decisionId;
@@ -40,8 +41,11 @@ export const POST = withApi<ActionItemWriteInput>(
   async ({ session, body }) => {
     // Verify decision belongs to workspace if provided
     if (body.decisionId) {
-      const dec = await prisma.decision.findUnique({ where: { id: body.decisionId }, select: { workspaceId: true } });
-      if (!dec || dec.workspaceId !== session.workspaceId)
+      const dec = await prisma.decision.findUnique({
+        where: { id: body.decisionId },
+        select: { workspaceId: true, visibility: true, createdByUserId: true },
+      });
+      if (!visibleDecision(dec, session))
         return NextResponse.json({ error: "Decision not found." }, { status: 404 });
     }
 

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openSession } from "@/lib/session-crypto";
 
-const publicRoutes = ["/login", "/signup"];
-const publicPrefixes = ["/share"];
+// Signed-out-only pages: a signed-in visitor is sent to their decision log.
+const publicRoutes = ["/login", "/signup", "/forgot-password"];
+// Open to everyone, signed in or not. A member previewing a public share link,
+// or opening a set-password link while signed in, must not be bounced away.
+const openPrefixes = ["/share/", "/set-password/"];
 // Marketing and legal pages are reachable by everyone - no auth gate, and no
 // "bounce authed users away" redirect (so the legal links keep working for
 // signed-in members). The landing page itself redirects authenticated visitors
@@ -12,13 +15,11 @@ const marketingRoutes = ["/", "/privacy", "/terms"];
 export async function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
-  if (marketingRoutes.includes(path)) {
+  if (marketingRoutes.includes(path) || openPrefixes.some((prefix) => path.startsWith(prefix))) {
     return NextResponse.next();
   }
 
-  const isPublicRoute =
-    publicRoutes.includes(path) ||
-    publicPrefixes.some((prefix) => path.startsWith(prefix));
+  const isPublicRoute = publicRoutes.includes(path);
 
   const sessionCookie = req.cookies.get("session");
   const session = await openSession(sessionCookie?.value);

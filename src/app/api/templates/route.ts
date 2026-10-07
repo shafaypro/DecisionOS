@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
+import { listTemplates } from "@/lib/templates";
 import { TemplateWriteSchema, type TemplateWriteInput } from "@/lib/schemas";
 
 export const GET = withApi(
   { require: "auth" },
   async ({ session }) => {
-    const templates = await prisma.decisionTemplate.findMany({
-      where: { OR: [{ workspaceId: null }, { workspaceId: session.workspaceId }] },
-      orderBy: [{ isBuiltIn: "desc" }, { category: "asc" }, { name: "asc" }],
-    });
+    const templates = await listTemplates(session.workspaceId);
 
     return NextResponse.json({ templates });
   },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
+import { visibleDecision } from "@/lib/tenant";
 import { ActionItemPatchSchema, type ActionItemPatchInput } from "@/lib/schemas";
 
 const itemInclude = {
@@ -24,9 +25,9 @@ export const PATCH = withApi<ActionItemPatchInput, { id: string }>(
     if (decisionId) {
       const target = await prisma.decision.findUnique({
         where: { id: decisionId },
-        select: { workspaceId: true },
+        select: { workspaceId: true, visibility: true, createdByUserId: true },
       });
-      if (!target || target.workspaceId !== session.workspaceId) {
+      if (!visibleDecision(target, session)) {
         return NextResponse.json({ error: "Decision not found." }, { status: 404 });
       }
     }

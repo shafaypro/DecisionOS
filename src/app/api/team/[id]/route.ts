@@ -5,6 +5,58 @@ import { invalidateWorkspaceAccess } from "@/lib/access-control";
 import { isPlatformAdminEmail } from "@/lib/env";
 import { track } from "@/lib/analytics";
 import { auditApiEvent } from "@/lib/audit-log";
+import { TeamRoleSchema, type TeamRoleInput } from "@/lib/schemas";
+
+/**
+ * PATCH /api/team/[id]
+ * Change a member's role (admin / member / viewer). Admin only, with the same
+ * guards as removal: tenant-scoped 404, platform administrators are fixed, and
+ * the workspace always keeps at least one admin.
+ */
+export const PATCH = withApi<TeamRoleInput, { id: string }>(
+  { require: "admin", schema: TeamRoleSchema },
+  async ({ session, params, body, req }) => {
+    const membership = await prisma.workspaceMembership.findUnique({
+      where: { id: params.id },
+      select: { id: true, workspaceId: true, userId: true, role: true, user: { select: { email: true } } },
+    });
+    if (!membership || membership.workspaceId !== session.workspaceId) {
+      return NextResponse.json({ error: "Member not found" }, { status: 404 });
+    }
+    if (membership.role === body.role) return NextResponse.json({ success: "No change." });
+
+    if (isPlatformAdminEmail(membership.user.email)) {
+      return NextResponse.json({ error: "Cannot change a platform administrator's role." }, { status: 400 });
+    }
+
+    if (membership.role === "admin") {
+      const adminCount = await prisma.workspaceMembership.count({
+        where: { workspaceId: session.workspaceId, role: "admin" },
+      });
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          { error: "The workspace needs at least one admin. Promote someone else first." },
+          { status: 400 },
+        );
+      }
+    }
+
+    await prisma.workspaceMembership.update({ where: { id: membership.id }, data: { role: body.role } });
+    // A demotion takes effect on this instance immediately, not after the TTL.
+    invalidateWorkspaceAccess(membership.userId, membership.workspaceId);
+
+    await auditApiEvent({
+      action: "member.role_changed",
+      session,
+      req,
+      targetType: "user",
+      targetId: membership.userId,
+      metadata: { targetEmail: membership.user.email, from: membership.role, to: body.role },
+    });
+
+    return NextResponse.json({ success: `Role changed to ${body.role}.` });
+  },
+);
 
 /**
  * DELETE /api/team/[id]

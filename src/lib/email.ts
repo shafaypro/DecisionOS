@@ -15,6 +15,8 @@
 import nodemailer from "nodemailer";
 import { logger } from "@/lib/logger";
 
+const SMTP_TIMEOUT_MS = 10_000;
+
 function getTransporter() {
   const host = process.env.SMTP_HOST;
   if (!host) return null;
@@ -27,6 +29,11 @@ function getTransporter() {
       user: process.env.SMTP_USER ?? "",
       pass: process.env.SMTP_PASS ?? "",
     },
+    // Fail fast. Several request paths (invites, watcher notifications) send
+    // inline, and nodemailer's defaults wait minutes on an unreachable host.
+    connectionTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: SMTP_TIMEOUT_MS,
+    socketTimeout: SMTP_TIMEOUT_MS,
   });
 }
 

@@ -50,8 +50,8 @@
     "ioredis": "^5.11.1",
     "jose": "^6.2.3",
     "lucide-react": "^1.23.0",
-    "next": "^16.3.4",
-    "nodemailer": "^9.1.1",
+    "next": "^16.3.8",
+    "nodemailer": "^10.0.15",
     "pg": "^8.22.0",
     "prisma": "~7.8.0",
     "react": "19.2.7",
@@ -96,6 +96,7 @@
     "deepmerge-ts": "^8.0.2",
     "mysql2": "^3.24.4",
     "qs": "^6.16.0",
-    "valibot": "^1.5.0"
+    "valibot": "^1.5.0",
+    "webpack-dev-middleware": "^7.4.5"
   }
 }

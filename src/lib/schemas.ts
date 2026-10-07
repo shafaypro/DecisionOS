@@ -8,6 +8,13 @@
  */
 
 import { z } from "zod";
+import {
+  CATEGORIES,
+  IMPACT_LEVELS,
+  STATUSES,
+  VISIBILITIES,
+  normalizeStatus,
+} from "./utils";
 
 // ── Reusable primitives ────────────────────────────────────────────────────────
 
@@ -27,6 +34,21 @@ const isoDateString = z
 
 // ── Decision ───────────────────────────────────────────────────────────────────
 
+const valuesOf = <T extends { value: string }>(options: readonly T[]) =>
+  options.map((o) => o.value) as [T["value"], ...T["value"][]];
+
+/** One of `options`' values; the error lists what is accepted. */
+const oneOf = <T extends { value: string }>(options: readonly T[], field: string) => {
+  const values = valuesOf(options);
+  return z.enum(values, { error: `${field} must be one of: ${values.join(", ")}` });
+};
+
+/** Decision status - legacy values (`decided`, `under_review`, ...) are folded in first. */
+const decisionStatus = z.preprocess(
+  (v) => (typeof v === "string" ? normalizeStatus(v) : v),
+  oneOf(STATUSES, "Status"),
+);
+
 /**
  * Shared write shape - used for both POST (create) and PUT (update).
  * All fields except `title` are optional so partial updates work naturally.
@@ -39,10 +61,10 @@ export const DecisionWriteSchema = z.object({
     .max(200, "Title must be 200 characters or less"),
 
   summary: z.string().max(1_000, "Summary must be 1 000 characters or less").nullable().optional(),
-  category: z.string().max(50).optional(),
-  status: z.string().max(50).optional(),
-  impactLevel: z.string().max(50).optional(),
-  visibility: z.string().max(50).optional(),
+  category: oneOf(CATEGORIES, "Category").optional(),
+  status: decisionStatus.optional(),
+  impactLevel: oneOf(IMPACT_LEVELS, "Impact level").optional(),
+  visibility: oneOf(VISIBILITIES, "Visibility").optional(),
 
   ownerUserId: z.string().nullable().optional(),
   accountableUserId: z.string().nullable().optional(),
@@ -218,6 +240,9 @@ export const WorkspaceSettingsSchema = z.object({
 });
 export type WorkspaceSettingsInput = z.infer<typeof WorkspaceSettingsSchema>;
 
+export const WorkspaceSharingSchema = z.object({ publicSharing: z.boolean() });
+export type WorkspaceSharingInput = z.infer<typeof WorkspaceSharingSchema>;
+
 // ── Team ───────────────────────────────────────────────────────────────────────
 
 export const TeamInviteSchema = z.object({
@@ -230,6 +255,11 @@ export const TeamInviteSchema = z.object({
   role: z.enum(["admin", "member", "viewer"]).optional(),
 });
 export type TeamInviteInput = z.infer<typeof TeamInviteSchema>;
+
+export const TeamRoleSchema = z.object({
+  role: z.enum(["admin", "member", "viewer"], { error: "Role must be admin, member, or viewer" }),
+});
+export type TeamRoleInput = z.infer<typeof TeamRoleSchema>;
 
 // ── Platform (provider) console ──────────────────────────────────────────────
 

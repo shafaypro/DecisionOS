@@ -6,11 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import Link from "next/link";
 import { cn, formatDate } from "@/lib/utils";
-import { GitBranch, Settings2, Plug, Lock, ShieldCheck } from "lucide-react";
+import { GitBranch, Globe, Settings2, Plug, Lock, ShieldCheck, LayoutTemplate } from "lucide-react";
 import { UpdateWorkspaceForm } from "./update-workspace-form";
 import { AccountData } from "./account-data";
+import { SharingToggle } from "./sharing-toggle";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
+
+export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const session = await getSession();
@@ -28,6 +31,9 @@ export default async function SettingsPage() {
   if (!workspace) redirect("/login");
 
   const isAdmin = session.role === "admin";
+  const sharedCount = isAdmin
+    ? await prisma.decision.count({ where: { workspaceId: workspace.id, shareToken: { not: null } } })
+    : 0;
 
   return (
     <PageContainer>
@@ -65,20 +71,34 @@ export default async function SettingsPage() {
 
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <Text>{workspace._count.memberships}</Text>
-              <Text>Members</Text>
+              <Text as="p" size="lg" weight="semibold" color="primary">{workspace._count.memberships}</Text>
+              <Text as="p" size="xs" color="muted">Members</Text>
             </div>
             <div>
-              <Text>{workspace._count.decisions}</Text>
-              <Text>Decisions</Text>
+              <Text as="p" size="lg" weight="semibold" color="primary">{workspace._count.decisions}</Text>
+              <Text as="p" size="xs" color="muted">Decisions</Text>
             </div>
             <div>
-              <Text>{formatDate(workspace.createdAt)}</Text>
-              <Text>Created</Text>
+              <Text as="p" size="lg" weight="semibold" color="primary">{formatDate(workspace.createdAt)}</Text>
+              <Text as="p" size="xs" color="muted">Created</Text>
             </div>
           </div>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="rounded-xs transition-all duration-200">
+          <div className="flex flex-col space-y-1.5 p-6 pb-3">
+            <Text as="h3" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Sharing
+            </Text>
+          </div>
+          <div className="p-6 pt-0">
+            <SharingToggle enabled={workspace.publicSharing} sharedCount={sharedCount} />
+          </div>
+        </div>
+      )}
 
       {/* Admin-only settings */}
       {isAdmin && (
@@ -133,6 +153,24 @@ export default async function SettingsPage() {
               <Button variant="outline" size="sm" asChild>
                 <Link href="/settings/audit">
                   View audit log
+                </Link>
+              </Button>
+            </div>
+          </div>
+          <div className="rounded-xs transition-all duration-200 transition-colors">
+            <div className={cn("flex flex-col space-y-1.5 p-6", "pb-3")}>
+              <Text as="h3" className="flex items-center gap-2">
+                <LayoutTemplate className="h-4 w-4 text-blue-500" />
+                Decision templates
+              </Text>
+              <Text as="p">
+                Starting points that pre-fill the new-decision form for recurring decision types.
+              </Text>
+            </div>
+            <div className={cn("p-6 pt-0", "pt-0")}>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/settings/templates">
+                  Manage templates
                 </Link>
               </Button>
             </div>

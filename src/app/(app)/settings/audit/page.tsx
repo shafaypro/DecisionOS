@@ -13,6 +13,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { describeAuditAction } from "@/lib/audit";
 
+export const metadata = { title: "Audit log" };
+
 const PAGE_SIZE = 100;
 
 /**

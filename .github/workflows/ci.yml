@@ -80,10 +80,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Fails on high or critical advisories. Moderate/low are warnings only.
+      # Two gates, because what ships and what only runs on a developer machine
+      # carry different risk:
+      #   - Production dependencies fail on any high or critical advisory.
+      #   - The whole tree, dev tooling included, fails on critical.
+      # Dev-only highs (today: ESLint's and Storybook's file-watching chains,
+      # where the `braces` advisory covers every published version) are
+      # reported by the last step without blocking, so they stay visible.
       # Review https://github.com/shafaypro/DecisionOS/security/advisories for details.
-      - name: npm audit (high+)
-        run: npm audit --audit-level=high
+      - name: npm audit - production dependencies (high+)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: npm audit - all dependencies (critical)
+        run: npm audit --audit-level=critical
+
+      - name: npm audit - full report (informational)
+        run: npm audit || true
 
   docker:
     name: Docker image build

@@ -18,6 +18,9 @@ model Workspace {
   // Lifecycle - set by the platform (provider) console. A suspended workspace is
   // locked out for its own members but still reachable by a platform admin.
   status      String   @default("active")            // active | suspended
+  // When false, nobody in the workspace can create public share links, and
+  // switching it off revokes every existing link.
+  publicSharing Boolean @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -95,6 +98,9 @@ model Decision {
   reviewDate             DateTime?
   reviewedAt             DateTime?
   visibility             String    @default("workspace")
+  // Random, unguessable token for the public read-only page at /share/<token>.
+  // Null means not shared. Never derived from the id, so ids leak nothing.
+  shareToken             String?   @unique
   capturedVia            String?   @default("web") // web | slack_slash | slack_emoji
   // RACI-lite: accountable = single DRI; consultedIds = JSON array of user IDs
   accountableUserId      String?

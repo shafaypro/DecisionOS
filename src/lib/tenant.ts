@@ -47,3 +47,33 @@ export function sameWorkspace<T extends { workspaceId: string }>(
   if (!row) return null;
   return row.workspaceId === session.workspaceId ? row : null;
 }
+
+/**
+ * Guard a fetched decision is one the caller may see: in their workspace, and
+ * either workspace-visible or their own private decision. The per-row twin of
+ * `decisionVisibilityWhere` - use it wherever a route looks a decision up by id
+ * before reading or writing anything that belongs to it. Returns null (→ 404)
+ * otherwise, so a private decision's existence isn't confirmed either.
+ */
+export function visibleDecision<T extends { workspaceId: string; visibility: string; createdByUserId: string }>(
+  row: T | null | undefined,
+  session: TenantSession,
+): T | null {
+  if (!row || row.workspaceId !== session.workspaceId) return null;
+  return row.visibility === "workspace" || row.createdByUserId === session.userId ? row : null;
+}
+
+/**
+ * Action items the caller may see: unattached ones, and ones attached to a
+ * decision they can see. Without this, the board would show the titles of
+ * other members' private decisions next to their follow-ups.
+ */
+export function actionItemVisibilityWhere(session: TenantSession) {
+  return {
+    workspaceId: session.workspaceId,
+    OR: [
+      { decisionId: null },
+      { decision: { OR: [{ visibility: "workspace" }, { createdByUserId: session.userId }] } },
+    ],
+  };
+}

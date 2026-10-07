@@ -1,8 +1,11 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { actionItemVisibilityWhere, decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect } from "next/navigation";
 import { KanbanBoard } from "./kanban-board";
 import { PageHeader } from "@/components/layout/page-header";
+
+export const metadata = { title: "Board" };
 
 export default async function BoardPage() {
   const session = await getSession();
@@ -10,7 +13,7 @@ export default async function BoardPage() {
 
   const [items, members, decisions] = await Promise.all([
     prisma.actionItem.findMany({
-      where: { workspaceId: session.workspaceId },
+      where: actionItemVisibilityWhere(session),
       orderBy: [{ priority: "desc" }, { dueDate: "asc" }, { createdAt: "asc" }],
       include: {
         assignee:  { select: { id: true, name: true } },
@@ -23,14 +26,14 @@ export default async function BoardPage() {
       include: { user: { select: { id: true, name: true } } },
     }),
     prisma.decision.findMany({
-      where: { workspaceId: session.workspaceId, status: { notIn: ["archived"] } },
+      where: { ...decisionVisibilityWhere(session), status: { notIn: ["archived"] } },
       select: { id: true, title: true },
       orderBy: { title: "asc" },
     }),
   ]);
 
   return (
-    <div className="p-8 flex flex-col gap-8">
+    <div className="flex flex-col gap-8 px-4 pb-8 pt-16 sm:px-8 lg:pt-8">
       <PageHeader
         title="Board"
         description={<>Action items across all decisions · {items.filter(i => i.status !== "done" && i.status !== "cancelled").length} open</>}

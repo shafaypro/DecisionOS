@@ -69,6 +69,16 @@ export function withApi<TBody = undefined, TParams = Record<string, never>>(
         if (!access.ok) {
           return NextResponse.json({ error: access.error }, { status: access.status });
         }
+        // The cookie's role is a snapshot from sign-in. Also authorize against
+        // the live role, so a demotion (admin → member → viewer) bites now
+        // rather than at the next login. A promotion still waits for a fresh
+        // session - authorization only ever gets stricter here.
+        if (access.role !== session.role) {
+          const live = authorizeRole(access.role, opts.require ?? "auth");
+          if (!live.ok) {
+            return NextResponse.json({ error: live.error }, { status: live.status });
+          }
+        }
       }
 
       let body = undefined as TBody;

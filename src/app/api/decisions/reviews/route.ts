@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { notifyDecisionWatchers } from "@/lib/notify-watchers";
 import { withApi } from "@/lib/api-handler";
-import { sameWorkspace } from "@/lib/tenant";
+import { visibleDecision } from "@/lib/tenant";
 import { ReviewWriteSchema, type ReviewWriteInput } from "@/lib/schemas";
 
 export const POST = withApi<ReviewWriteInput>(
   { require: "writer", schema: ReviewWriteSchema },
   async ({ session, body }) => {
     const { decisionId, outcomeStatus, summary, lessonsLearned, followUpAction } = body;
-    const decision = sameWorkspace(
+    const decision = visibleDecision(
       await prisma.decision.findUnique({ where: { id: decisionId } }),
       session,
     );

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
-import { sameWorkspace, type TenantSession } from "@/lib/tenant";
+import { visibleDecision, type TenantSession } from "@/lib/tenant";
 import { ReactionSchema, type ReactionInput } from "@/lib/schemas";
 
 /**
@@ -13,8 +13,8 @@ import { ReactionSchema, type ReactionInput } from "@/lib/schemas";
 type Params = { id: string };
 
 async function findDecision(id: string, session: TenantSession) {
-  return sameWorkspace(
-    await prisma.decision.findUnique({ where: { id }, select: { id: true, workspaceId: true } }),
+  return visibleDecision(
+    await prisma.decision.findUnique({ where: { id }, select: { id: true, workspaceId: true, visibility: true, createdByUserId: true } }),
     session,
   );
 }

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Row } from "./row";
 import { Row as ListRow } from "@/components/ui/row";
 import { Text } from "@/components/ui/text";
-import { Plus, Check, Pencil } from "lucide-react";
+import { Plus, Check, Pencil, Lock, Users } from "lucide-react";
 import { TEXT_SIZE } from "@/lib/typography";
 import { cn, STATUS_COLORS, STATUSES, getLabelForValue } from "@/lib/utils";
 
@@ -31,13 +31,20 @@ const editAffordance = (
 /** Sidebar-style hover interactivity for an inline-editable row: darker resting text, darkens on hover. */
 const EDITABLE_ROW = "px-0 text-slate-600 hover:text-slate-800";
 
-async function patchField(id: string, field: string, value: string | null) {
-  const res = await fetch(`/api/decisions/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ [field]: value }),
-  });
-  return res.json() as Promise<{ error?: string }>;
+/** Never throws: a network failure or non-JSON reply comes back as `{ error }`. */
+async function patchField(id: string, field: string, value: unknown): Promise<{ error?: string }> {
+  try {
+    const res = await fetch(`/api/decisions/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { error: data.error ?? `Save failed (${res.status})` };
+    return data;
+  } catch {
+    return { error: "Could not reach the server - your edit was not saved." };
+  }
 }
 
 /**
@@ -102,7 +109,8 @@ export function EditableText({
     setSaving(true);
     const data = await patchField(decisionId, field, isTitle ? next : (next || null));
     setSaving(false);
-    if (data.error) { toast.error(data.error); setVal(value ?? ""); }
+    // Keep what they typed on screen so a failed save doesn't lose it.
+    if (data.error) { toast.error(data.error); setEditing(true); }
     else router.refresh();
   }
 
@@ -215,7 +223,7 @@ export function EditableField({
     setSaving(true);
     const data = await patchField(decisionId, field, next || null);
     setSaving(false);
-    if (data.error) { toast.error(data.error); setVal(value ?? ""); }
+    if (data.error) { toast.error(data.error); setEditing(true); }
     else router.refresh();
   }
 
@@ -329,12 +337,18 @@ export function EditableField({
   );
 }
 
-/** Status pill that opens a dropdown on click. */
-export function EditableStatus({
-  decisionId, value,
+/** A colored pill that opens a dropdown of `options` on click (status, category, impact). */
+export function EditablePill({
+  decisionId, field, value, options, colors, ariaLabel, suffix,
 }: {
   decisionId: string;
+  field: string;
   value: string;
+  options: readonly { value: string; label: string }[];
+  colors: Record<string, string>;
+  ariaLabel: string;
+  /** Appended to the label, e.g. " impact". */
+  suffix?: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -343,7 +357,7 @@ export function EditableStatus({
   async function onChange(next: string) {
     if (next === value) return;
     setSaving(true);
-    const data = await patchField(decisionId, "status", next);
+    const data = await patchField(decisionId, field, next);
     setSaving(false);
     if (data.error) toast.error(data.error);
     else router.refresh();
@@ -352,19 +366,34 @@ export function EditableStatus({
   return (
     <Select value={value} onValueChange={onChange} disabled={saving}>
       <SelectTrigger
+        aria-label={ariaLabel}
         className={cn(
-          "inline-flex h-6 w-auto items-center gap-1 rounded-full border px-2 tracking-tighter !shadow-none [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-60",
-          STATUS_COLORS[value] ?? "bg-slate-100 text-slate-600 border-slate-200",
+          "inline-flex h-6 w-auto items-center gap-1 whitespace-nowrap rounded-full border px-2 tracking-tighter !shadow-none [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-60",
+          colors[value] ?? "bg-slate-100 text-slate-600 border-slate-200",
         )}
       >
-        <span className="caps-label">{getLabelForValue(STATUSES, value)}</span>
+        <span className="caps-label">{getLabelForValue(options, value)}{suffix}</span>
       </SelectTrigger>
       <SelectContent>
-        {STATUSES.map((s) => (
-          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+/** Status pill that opens a dropdown on click. */
+export function EditableStatus({ decisionId, value }: { decisionId: string; value: string }) {
+  return (
+    <EditablePill
+      decisionId={decisionId}
+      field="status"
+      value={value}
+      options={STATUSES}
+      colors={STATUS_COLORS}
+      ariaLabel="Change status"
+    />
   );
 }
 
@@ -468,5 +497,128 @@ export function EditableDate({
         </div>
       }
     />
+  );
+}
+
+/**
+ * The people consulted on a decision, as removable chips plus an "add" picker.
+ * Saves the whole list on each change - it's small and order doesn't matter.
+ */
+export function EditableConsulted({
+  decisionId, value, members,
+}: {
+  decisionId: string;
+  value: string[];
+  members: { value: string; label: string }[];
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [ids, setIds] = useState(value);
+  const [saving, setSaving] = useState(false);
+  const [prev, setPrev] = useState(value);
+  if (value !== prev) {
+    setPrev(value);
+    setIds(value);
+  }
+
+  async function save(next: string[]) {
+    const before = ids;
+    setIds(next);
+    setSaving(true);
+    const data = await patchField(decisionId, "consultedIds", next);
+    setSaving(false);
+    if (data.error) { toast.error(data.error); setIds(before); }
+    else router.refresh();
+  }
+
+  const nameOf = (id: string) => members.find((m) => m.value === id)?.label ?? "Former member";
+  const addable = members.filter((m) => !ids.includes(m.value));
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <Users className="h-3.5 w-3.5 text-text-subtle" aria-hidden />
+        <Text size="xs" color="muted">Consulted</Text>
+      </div>
+      {ids.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5" aria-label="Consulted">
+          {ids.map((id) => (
+            <li key={id} className="inline-flex h-6 items-center gap-1 rounded-full border border-slate-200 bg-white pl-2 pr-1">
+              <Text size="xs" color="secondary">{nameOf(id)}</Text>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => save(ids.filter((x) => x !== id))}
+                aria-label={`Remove ${nameOf(id)} from consulted`}
+                className="rounded-full p-0.5 text-slate-400 hover:text-slate-700 disabled:opacity-30"
+              >
+                <Plus className="h-3 w-3 rotate-45" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {addable.length > 0 && (
+        <select
+          aria-label="Add a person consulted"
+          value=""
+          disabled={saving}
+          onChange={(e) => e.target.value && save([...ids, e.target.value])}
+          className="h-7 w-full rounded-xs bg-white px-2 text-xs text-text-secondary shadow-soft focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">+ Add someone consulted…</option>
+          {addable.map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
+/** Workspace / private switch. Only the author (or an admin) may change it. */
+export function EditableVisibility({ decisionId, value }: { decisionId: string; value: string }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
+  const isPrivate = value !== "workspace";
+
+  async function toggle() {
+    const next = isPrivate ? "workspace" : "private";
+    if (
+      next === "private" &&
+      !confirm("Make this decision private? Only you will be able to see it, and any public link is revoked.")
+    ) return;
+    setSaving(true);
+    const data = await patchField(decisionId, "visibility", next);
+    setSaving(false);
+    if (data.error) toast.error(data.error);
+    else {
+      toast.success(next === "private" ? "Only you can see this decision now" : "Visible to the whole workspace");
+      router.refresh();
+    }
+  }
+
+  return (
+    <div className="flex items-start gap-1.5">
+      {isPrivate ? (
+        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden />
+      ) : (
+        <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-text-subtle" aria-hidden />
+      )}
+      <div>
+        <Text as="p" size="sm" color="secondary">
+          {isPrivate ? "Private - only you can see it" : "Visible to the workspace"}
+        </Text>
+        <button
+          type="button"
+          onClick={toggle}
+          disabled={saving}
+          className="text-left hover:underline disabled:opacity-50"
+        >
+          <Text size="xs" color="muted">{isPrivate ? "Share with the workspace" : "Make private"}</Text>
+        </button>
+      </div>
+    </div>
   );
 }

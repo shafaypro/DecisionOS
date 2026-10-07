@@ -97,11 +97,11 @@ export function DecisionsTable({ decisions, isViewer }: DecisionsTableProps) {
               )}
               <Table.Cell>
                 <Link href={`/decisions/${d.id}`} className="block">
-                  <Text as="p">
+                  <Text as="p" weight="medium" color="primary">
                     {d.title}
                   </Text>
                   {d.summary && (
-                    <Text as="p">{d.summary}</Text>
+                    <Text as="p" size="xs" color="muted" className="mt-0.5 line-clamp-2">{d.summary}</Text>
                   )}
                 </Link>
               </Table.Cell>

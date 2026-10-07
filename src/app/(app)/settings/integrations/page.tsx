@@ -11,6 +11,8 @@ import { CheckCircle2, MessageSquare as SlackIcon } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
 
+export const metadata = { title: "Integrations" };
+
 interface SearchParams {
   searchParams: Promise<{ slack?: string; slack_error?: string }>;
 }

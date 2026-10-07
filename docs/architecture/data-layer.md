@@ -87,7 +87,9 @@ erDiagram
 
 Modeling notes:
 - **Enums are stored as `String`** (status, role, category, priority, relationType, …) with
-  app-level defaults - no DB-level CHECK yet. Moving to Postgres-native `enum` is a backlog item.
+  app-level defaults - no DB-level CHECK yet. Decision `status`, `category`, `impactLevel`, and
+  `visibility` are validated against the lists in `src/lib/utils.ts` by `DecisionWriteSchema`
+  (legacy statuses are mapped on input). Moving to Postgres-native `enum` is a backlog item.
 - **JSON is stored as `String`** (`consultedIds`, `*Json` audit/version blobs, encrypted
   `configJson`). Postgres `jsonb` is a future improvement.
 - **Audit trail:** most mutations also write a `DecisionEvent`; edits snapshot to
@@ -130,18 +132,20 @@ this section lists the fields that matter most per model.
 | Field | Type | Description |
 |---|---|---|
 | `status` | String | `active` / `suspended` - lifecycle set by the platform console; suspended workspaces lock out their members (see [Platform admin](../PLATFORM_ADMIN.md)) |
+| `publicSharing` | Boolean | Whether members may create public read-only links (default `true`). Turning it off clears every decision's `shareToken`. |
 
 ### Decision
 
 | Field | Type | Description |
 |---|---|---|
 | `title` | String | Short decision title (3-200 chars) |
-| `summary` | String| 1-2 sentence description shown in list views (max 500) |
-| `category` | String | `engineering` / `product` / `hiring` / `finance` / `marketing` / `operations` / `strategy` / `other` |
-| `status` | String | `draft` / `in_review` / `approved` / `superseded` / `deprecated` / `reversed` / `archived` |
-| `outcomeStatus` | String| `unknown` / `successful` / `partially_successful` / `unsuccessful` / `reversed` |
-| `impactLevel` | String | `low` / `medium` / `high` / `critical` |
-| `visibility` | String | `workspace` (all members) / `private` (creator only) |
+| `summary` | String| One-line description shown under the title in lists and search (max 1000) |
+| `category` | String | `product` / `engineering` / `business` / `hiring` / `finance` / `marketing` / `strategy` / `operations` / `other` |
+| `status` | String | `draft` / `proposed` / `in_review` / `approved` / `reversed` / `superseded` / `archived` |
+| `outcomeStatus` | String| `unknown` / `successful` / `mixed` / `unsuccessful` |
+| `impactLevel` | String | `low` / `medium` / `high` |
+| `visibility` | String | `workspace` (all members) / `private` (creator only). Enforced on every read and write by `decisionVisibilityWhere` / `visibleDecision` in `src/lib/tenant.ts`; only the creator or an admin may change it |
+| `shareToken` | String? (unique) | Random token for the public page at `/share/<token>`. Null means not shared; set and cleared from the decision's Share panel |
 | `ownerUserId` | String| Responsible person (FK → User) |
 | `problemStatement` | String| What problem prompted this decision? |
 | `chosenOption` | String| What specific option was selected? |
@@ -171,4 +175,4 @@ this section lists the fields that matter most per model.
 
 ### DecisionEvent types (audit log)
 
-`created` · `updated` · `status_changed` · `note_added` · `link_added` · `reviewed`
+`created` · `updated` · `status_changed` · `note_added` · `link_added` · `reviewed` · `share_enabled` · `share_revoked`

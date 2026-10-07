@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,8 @@ import { OnboardingChecklist, type ChecklistItem } from "./onboarding-checklist"
 import { DecisionsTable } from "./decisions-table";
 import { ExportMenu } from "@/components/decisions/export-menu";
 
+export const metadata = { title: "Decisions" };
+
 interface PageProps {
   searchParams: Promise<{
     status?: string;
@@ -41,6 +44,7 @@ interface PageProps {
     quality?: string;
     health?: string;
     group?: string;
+    archived?: string;
   }>;
 }
 
@@ -135,6 +139,23 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
     now,
   });
   Object.assign(where, queryWhere);
+  // Private decisions are visible only to their author - the query language
+  // never emits a top-level OR, so this can't clobber a filter.
+  where.OR = decisionVisibilityWhere(session).OR;
+
+  // Archived decisions are out of the default view - that's what archiving
+  // promises. Any explicit status filter (dropdown or `status:` in the query)
+  // or ?archived=1 brings them back.
+  const showArchived =
+    params.archived === "1" ||
+    Boolean(params.status) ||
+    Boolean(parsedQuery.include.status?.length) ||
+    Boolean(parsedQuery.exclude.status?.length) ||
+    params.health === "archived" ||
+    Boolean(parsedQuery.include.health?.includes("archived"));
+  if (!showArchived) {
+    where.NOT = { status: "archived" };
+  }
 
   const [decisionsRaw, aggRows, slackLink] = await Promise.all([
     prisma.decision.findMany({
@@ -147,7 +168,7 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
       },
     }),
     prisma.decision.findMany({
-      where: { workspaceId },
+      where: decisionVisibilityWhere(session),
       select: {
         id: true,
         title: true,
@@ -216,6 +237,7 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
 
   const hasFilters =
     params.status || params.owner || params.q || params.review || params.quality || healthFilter;
+  const archivedCount = aggRows.length - aggRows.filter((d) => d.status !== "archived").length;
   const isFirstVisit = totalCount === 0;
 
   const quickFilters = [
@@ -343,6 +365,20 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
           {quickFilters.map((filter) => (
             <QuickFilterLink key={filter.href} {...filter} />
           ))}
+          {archivedCount > 0 && !params.status && (
+            <Link
+              href={
+                params.archived === "1"
+                  ? "/decisions"
+                  : `/decisions?archived=1${params.q ? `&q=${encodeURIComponent(params.q)}` : ""}`
+              }
+              className="ml-auto hover:underline"
+            >
+              <Text size="xs" color="muted">
+                {params.archived === "1" ? "Hide archived" : `Show archived (${archivedCount})`}
+              </Text>
+            </Link>
+          )}
         </div>
       )}
 

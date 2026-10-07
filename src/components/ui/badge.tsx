@@ -23,7 +23,7 @@ export function Badge({
   disabled,
 }: BadgeProps) {
   const classes = cn(
-    "inline-flex h-6 items-center tracking-tighter gap-1 rounded-full border px-2",
+    "inline-flex h-6 shrink-0 items-center whitespace-nowrap tracking-tighter gap-1 rounded-full border px-2",
     variant === "outline"
       ? "bg-transparent"
       : "bg-blue-50 text-blue-700 border-blue-100",

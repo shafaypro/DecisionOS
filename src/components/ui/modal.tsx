@@ -11,7 +11,8 @@ import { Text } from "@/components/ui/text";
  * stacking context of the trigger's position in the tree.
  *
  * Accessibility: the visible title names the dialog via aria-labelledby, focus
- * moves into the dialog on open and is restored to the trigger on close.
+ * moves into the dialog on open, Tab cycles inside it, and focus is restored to
+ * the trigger on close.
  */
 export function Modal({
   open,
@@ -26,11 +27,39 @@ export function Modal({
 }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  // Callers usually pass an inline arrow, which is a new function every render.
+  // Reading it through a ref keeps the effect below keyed on `open` alone -
+  // otherwise each keystroke in the dialog re-ran it and yanked focus away.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+  // Only a press that both starts and ends on the backdrop closes the dialog, so
+  // drag-selecting text inside it and releasing outside doesn't discard input.
+  const pressStartedOnBackdrop = useRef(false);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === dialogRef.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -45,14 +74,19 @@ export function Modal({
       document.body.style.overflow = "";
       previouslyFocused?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 animate-fade-in"
-      onClick={onClose}
+      onMouseDown={(e) => {
+        pressStartedOnBackdrop.current = e.target === e.currentTarget;
+      }}
+      onClick={(e) => {
+        if (pressStartedOnBackdrop.current && e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         ref={dialogRef}
@@ -60,7 +94,6 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
         className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-xs bg-white p-6 shadow-soft space-y-4 outline-none"
       >
         <div className="flex items-center justify-between">

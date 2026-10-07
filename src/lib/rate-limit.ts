@@ -203,6 +203,20 @@ export const signupLimiter = rateLimit({
   prefix: "auth:signup-ip",
 });
 
+// Reset requests send email, so cap them per ip and per address; setting a
+// password from a link is capped per ip to blunt token guessing.
+export const passwordResetLimiter = rateLimit({
+  limit: 5,
+  windowMs: 15 * 60_000,
+  prefix: "auth:reset",
+});
+
+export const passwordSetLimiter = rateLimit({
+  limit: 10,
+  windowMs: 15 * 60_000,
+  prefix: "auth:set-password",
+});
+
 /**
  * Per-user mutation limiters. Tuned to keep humans well below the cap while
  * still blocking a runaway script that's trying to spam the workspace.

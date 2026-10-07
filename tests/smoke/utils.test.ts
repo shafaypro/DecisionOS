@@ -10,6 +10,7 @@ import {
   STATUSES,
   RELATION_TYPES,
   clampIntParam,
+  normalizeStatus,
 } from "../../src/lib/utils";
 
 /**
@@ -86,10 +87,22 @@ export const utilsTests = {
     assertEqual(getLabelForValue(RELATION_TYPES, "supersedes"), "Supersedes");
   },
 
-  "getLabelForValue: unknown values fall back to the raw value"() {
-    // Important - legacy or future enum values shouldn't crash the UI.
-    assertEqual(getLabelForValue(STATUSES, "nonexistent_status"), "nonexistent_status");
+  "getLabelForValue: unknown values fall back to a readable form"() {
+    // Important - legacy or future enum values shouldn't crash the UI, and
+    // shouldn't leak raw snake_case into badges either.
+    assertEqual(getLabelForValue(STATUSES, "nonexistent_status"), "Nonexistent status");
     assertEqual(getLabelForValue(CATEGORIES, ""), "");
+  },
+
+  "STATUSES includes draft, the status 'Save as draft' writes"() {
+    assertEqual(getLabelForValue(STATUSES, "draft"), "Draft");
+  },
+
+  "normalizeStatus maps legacy values and leaves current ones alone"() {
+    assertEqual(normalizeStatus("decided"), "approved");
+    assertEqual(normalizeStatus("validated"), "approved");
+    assertEqual(normalizeStatus("under_review"), "in_review");
+    assertEqual(normalizeStatus("proposed"), "proposed");
   },
 
   "clampIntParam: a missing param falls back instead of collapsing to zero": () => {

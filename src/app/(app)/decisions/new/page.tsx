@@ -5,8 +5,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { DecisionForm } from "../_forms/decision-form";
+import { listTemplates } from "@/lib/templates";
+import { isAIConfigured } from "@/lib/anthropic";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
+
+export const metadata = { title: "New decision" };
 
 interface PageProps {
   searchParams: Promise<{ supersedes?: string }>;
@@ -18,7 +22,7 @@ export default async function NewDecisionPage({ searchParams }: PageProps) {
 
   const sp = await searchParams;
 
-  const [memberships, supersedes] = await Promise.all([
+  const [memberships, supersedes, templates, aiEnabled] = await Promise.all([
     prisma.workspaceMembership.findMany({
       where: { workspaceId: session.workspaceId },
       include: { user: { select: { id: true, name: true } } },
@@ -29,6 +33,8 @@ export default async function NewDecisionPage({ searchParams }: PageProps) {
           select: { id: true, title: true, workspaceId: true },
         })
       : Promise.resolve(null),
+    listTemplates(session.workspaceId),
+    isAIConfigured(session.workspaceId),
   ]);
 
   const members = memberships.map((m) => m.user);
@@ -54,6 +60,8 @@ export default async function NewDecisionPage({ searchParams }: PageProps) {
 
       <DecisionForm
         members={members}
+        templates={templates}
+        aiEnabled={aiEnabled}
         defaultValues={{ decisionDate: today }}
         supersedesId={supersedesValid?.id}
         supersedesTitle={supersedesValid?.title}

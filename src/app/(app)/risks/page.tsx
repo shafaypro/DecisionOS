@@ -13,6 +13,8 @@ import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { IMPACT_COLORS, cn, formatDate, getLabelForValue, IMPACT_LEVELS } from "@/lib/utils";
 
+export const metadata = { title: "Risk register" };
+
 /**
  * The risk register.
  *

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, UserPlus } from "lucide-react";
+import { AlertCircle, CheckCircle2, Copy, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -12,6 +12,8 @@ export function InviteMemberForm() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | undefined>();
   const [success, setSuccess] = useState<string | undefined>();
+  const [inviteUrl, setInviteUrl] = useState<string | undefined>();
+  const [copied, setCopied] = useState(false);
   const router = useRouter();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -27,6 +29,8 @@ export function InviteMemberForm() {
 
     setError(undefined);
     setSuccess(undefined);
+    setInviteUrl(undefined);
+    setCopied(false);
 
     startTransition(async () => {
       const res = await fetch("/api/team", {
@@ -41,6 +45,7 @@ export function InviteMemberForm() {
       }
 
       setSuccess(data.success);
+      setInviteUrl(typeof data.inviteUrl === "string" ? data.inviteUrl : undefined);
       form.reset();
       router.refresh();
     });
@@ -59,6 +64,33 @@ export function InviteMemberForm() {
         <div className="flex items-center gap-2 rounded-xs border border-emerald-200 bg-emerald-50 px-3 py-2 lg:col-span-3">
           <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-text-success" />
           <Text>{success}</Text>
+        </div>
+      )}
+
+      {inviteUrl && (
+        <div className="flex flex-col gap-2 sm:flex-row lg:col-span-3">
+          <input
+            readOnly
+            value={inviteUrl}
+            aria-label="Invitation link"
+            onFocus={(e) => e.currentTarget.select()}
+            className="h-9 min-w-0 flex-1 rounded-xs bg-white px-3 font-mono text-xs text-text-secondary shadow-soft"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(inviteUrl);
+                setCopied(true);
+              } catch {
+                setCopied(false);
+              }
+            }}
+            icon={<Copy className="h-4 w-4" />}
+          >
+            {copied ? "Copied" : "Copy link"}
+          </Button>
         </div>
       )}
 
