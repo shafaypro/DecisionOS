@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout (full history)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Full history so the scan covers secrets that were committed and
           # later removed, not just the current tree.
@@ -53,7 +53,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Flags newly-added dependencies with known high+ vulnerabilities or
       # disallowed licenses before they merge.
