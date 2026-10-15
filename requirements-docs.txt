@@ -1,4 +1,4 @@
 # Documentation site (MkDocs + Material), pinned for reproducible builds.
 # Dependabot proposes bumps; verify `mkdocs build` stays warning-free before merging.
 # Build locally: pip install -r requirements-docs.txt && mkdocs serve
-mkdocs-material==9.7.6
+mkdocs-material==9.7.7
