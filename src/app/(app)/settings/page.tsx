@@ -189,15 +189,15 @@ export default async function SettingsPage() {
         <div className="p-6 pt-0">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Text>Name</Text>
+              <Text>Name: </Text>
               <Text>{session.name}</Text>
             </div>
             <div>
-              <Text>Email</Text>
+              <Text>Email: </Text>
               <Text>{session.email}</Text>
             </div>
             <div>
-              <Text>Role</Text>
+              <Text>Role: </Text>
               <Text>{session.role}</Text>
             </div>
           </div>
